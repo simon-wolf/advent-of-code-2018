@@ -65,29 +65,80 @@ defmodule AdventOfCode2018.Day03 do
   fabric. How many square inches of fabric are within two or more claims?
   """
   def part1(file_path) do
-    {_used, overlaps} = file_path
+    file_path
     |> File.stream!()
     |> Stream.map(&String.trim/1)
     |> Enum.to_list()
-    |> Enum.reduce({[], []}, fn position, {used, overlaps} ->
+    |> coordinates_from_list()
+    |> Enum.filter( fn {_, value} -> value > 1  end)
+    |> Enum.count()
+  end
+
+  @doc """
+  --- Part Two ---
+
+  Amidst the chaos, you notice that exactly one claim doesn't overlap by even 
+  a single square inch of fabric with any other claim. If you can somehow draw 
+  attention to it, maybe the Elves will be able to make Santa's suit after all!
+
+  For example, in the claims above, only claim 3 is intact after all claims are made.
+
+  What is the ID of the only claim that doesn't overlap?
+  """
+  def part2(file_path) do
+    # areas = file_path
+    # |> File.stream!()
+    # |> Stream.map(&String.trim/1)
+    # |> Enum.to_list()
+    # |> Enum.reduce(MapSet.new(), fn position, areas ->
+    #   area = Regex.named_captures(~r/^#(?<id>\d+) @ (?<x>\d+),(?<y>\d+): (?<w>\d+)x(?<h>\d+)$/, position)
+    #   x_value = String.to_integer(area["x"])
+    #   y_value = String.to_integer(area["y"])
+    #   w_value = String.to_integer(area["w"])
+    #   h_value = String.to_integer(area["h"])
+
+    #   MapSet.put(areas, %{:id => area["id"], :x => x_value, :y => y_value, :w => w_value, :h => h_value})
+    # end)
+    # |> MapSet.to_list
+
+    # pairings = for area_a <- areas, area_b <- areas, area_a != area_b, do: {area_a, area_b}
+    # IO.inspect pairings
+
+
+    0
+  end
+
+  defp coordinates_from_list(areas_list) do
+    areas_list
+    # |> Enum.reduce(MapSet.new(), fn position, areas ->
+    #   area = Regex.named_captures(~r/^#(?<id>\d+) @ (?<x>\d+),(?<y>\d+): (?<w>\d+)x(?<h>\d+)$/, position)
+    #   x_value = String.to_integer(area["x"])
+    #   y_value = String.to_integer(area["y"])
+    #   w_value = String.to_integer(area["w"])
+    #   h_value = String.to_integer(area["h"])
+    #   id_value = String.to_integer(area["id"])
+
+    #   MapSet.put(areas, %{:id => id_value, :x => x_value, :y => y_value, :w => w_value, :h => h_value})
+    # end)
+    # |> MapSet.to_list
+    |> Enum.reduce(%{}, fn position, areas ->
       area = Regex.named_captures(~r/^#(?<id>\d+) @ (?<x>\d+),(?<y>\d+): (?<w>\d+)x(?<h>\d+)$/, position)
       x_value = String.to_integer(area["x"])
       y_value = String.to_integer(area["y"])
       w_value = String.to_integer(area["w"])
       h_value = String.to_integer(area["h"])
+      id_value = String.to_integer(area["id"])
 
       coords = for x_position <- x_value..(x_value + w_value - 1), y_position <- y_value..(y_value + h_value - 1), do: {x_position, y_position}
+      new_map = Enum.reduce(coords, %{}, fn coord, acc ->
+        Map.update(acc, coord, 1, &(&1 + 1))
+      end)
 
-      coords_mapset = MapSet.new(coords)
-      used_mapset = MapSet.new(used)
-      
-      new_overlaps = MapSet.intersection(used_mapset, coords_mapset)
-      { used ++ coords, overlaps ++ MapSet.to_list(new_overlaps) }
+      Map.merge(areas, new_map, fn _k, v1, v2 ->
+        v1 + v2
+      end)
     end)
-    
-    MapSet.new(overlaps) |> MapSet.to_list |> length()
+    |> Map.to_list
   end
 
-  def part2(args) do
-  end
 end
