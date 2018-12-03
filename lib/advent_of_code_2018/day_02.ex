@@ -4,15 +4,33 @@ defmodule AdventOfCode2018.Day02 do
   @doc """
   --- Day 2: Inventory Management System ---
 
-  You stop falling through time, catch your breath, and check the screen on the device. "Destination reached. Current Year: 1518. Current Location: North Pole Utility Closet 83N10." You made it! Now, to find those anomalies.
+  You stop falling through time, catch your breath, and check the screen on
+  the device. "Destination reached. Current Year: 1518. Current Location:
+  North Pole Utility Closet 83N10." You made it! Now, to find those anomalies.
 
-  Outside the utility closet, you hear footsteps and a voice. "...I'm not sure either. But now that so many people have chimneys, maybe he could sneak in that way?" Another voice responds, "Actually, we've been working on a new kind of suit that would let him fit through tight spaces like that. But, I heard that a few days ago, they lost the prototype fabric, the design plans, everything! Nobody on the team can even seem to remember important details of the project!"
+  Outside the utility closet, you hear footsteps and a voice. "...I'm not sure
+  either. But now that so many people have chimneys, maybe he could sneak in
+  that way?" Another voice responds, "Actually, we've been working on a new
+  kind of suit that would let him fit through tight spaces like that. But, I
+  heard that a few days ago, they lost the prototype fabric, the design plans,
+  everything! Nobody on the team can even seem to remember important details
+  of the project!"
 
-  "Wouldn't they have had enough fabric to fill several boxes in the warehouse? They'd be stored together, so the box IDs should be similar. Too bad it would take forever to search the warehouse for two similar box IDs..." They walk too far away to hear any more.
+  "Wouldn't they have had enough fabric to fill several boxes in the warehouse?
+  They'd be stored together, so the box IDs should be similar. Too bad it would
+  take forever to search the warehouse for two similar box IDs..." They walk
+  too far away to hear any more.
 
-  Late at night, you sneak to the warehouse - who knows what kinds of paradoxes you could cause if you were discovered - and use your fancy wrist device to quickly scan every box and produce a list of the likely candidates (your puzzle input).
+  Late at night, you sneak to the warehouse - who knows what kinds of paradoxes
+  you could cause if you were discovered - and use your fancy wrist device to
+  quickly scan every box and produce a list of the likely candidates (your
+  puzzle input).
 
-  To make sure you didn't miss any, you scan the likely candidate boxes again, counting the number that have an ID containing exactly two of any letter and then separately counting those with exactly three of any letter. You can multiply those two counts together to get a rudimentary checksum and compare it to what your device predicts.
+  To make sure you didn't miss any, you scan the likely candidate boxes again,
+  counting the number that have an ID containing exactly two of any letter and
+  then separately counting those with exactly three of any letter. You can
+  multiply those two counts together to get a rudimentary checksum and compare
+  it to what your device predicts.
 
   For example, if you see the following box IDs:
 
@@ -24,30 +42,36 @@ defmodule AdventOfCode2018.Day02 do
   abcdee contains two e.
   ababab contains three a and three b, but it only counts once.
 
-  Of these box IDs, four of them contain a letter which appears exactly twice, and three of them contain a letter which appears exactly three times. Multiplying these together produces a checksum of 4 * 3 = 12.
+  Of these box IDs, four of them contain a letter which appears exactly twice,
+  and three of them contain a letter which appears exactly three times.
+  Multiplying these together produces a checksum of 4 * 3 = 12.
 
   What is the checksum for your list of box IDs?
   """
   def part1(file_path) do
-    summary = file_path
+    {twos, threes} = file_path
     |> File.stream!()
     |> Stream.map(&String.trim/1)
 		|> Enum.to_list()
-		|> Enum.map(&AdventOfCode2018.Day02.splitter/1)
+		|> Enum.map(&letters_map/1)
+    |> Enum.reduce({0, 0}, fn map, {tw, th} ->
+      new_tw = if Map.has_key?(map, 2), do: tw + 1, else: tw
+      new_th = if Map.has_key?(map, 3), do: th + 1, else: th
+      {new_tw, new_th}
+    end)
 
-		count_of_twos = Enum.count(summary, fn x -> MapSet.member?(x, 2) end)
-		count_of_threes = Enum.count(summary, fn x -> MapSet.member?(x, 3) end)
-		count_of_twos * count_of_threes
+    twos * threes
   end
 
-  def splitter(letters) do
+  defp letters_map(letters) do
 		letters
 		|> String.graphemes()
 		|> Enum.reduce(%{}, fn char, acc ->
 			Map.update(acc, char, 1, &(&1 + 1))
-		end)
-		|> Map.values()
-		|> MapSet.new()
+    end)
+    |> Enum.into(%{}, fn {key, value} ->
+      {value, key}
+    end)
 	end
 
   @doc """
