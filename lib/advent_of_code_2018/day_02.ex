@@ -103,16 +103,13 @@ defmodule AdventOfCode2018.Day02 do
     |> Stream.map(&String.trim/1)
     |> Enum.to_list()
 
-    # words_length = Enum.reduce(word_list, 0, fn word ->
-    #   String.length(word)
-    # end)
-    # IO.inspect words_length
+    string_length = List.first(word_list) |> String.length()
 
     pairings = for word_a <- word_list, word_b <- word_list, word_a != word_b, do: {word_a, word_b}
 
     Enum.reduce_while(pairings, nil, fn {word_a, word_b}, _ ->
       matches = matched_letters(word_a, word_b)
-      if String.length(matches) == 26, do: {:halt, matches}, else: {:cont, word_a}
+      if String.length(matches) == string_length - 1, do: {:halt, matches}, else: {:cont, word_a}
     end)
   end
 
@@ -120,16 +117,6 @@ defmodule AdventOfCode2018.Day02 do
     compare_words(word_1, word_2)
     |> count_character_matches()
     |> List.to_string()
-  end
-
-  defp count_character_matches(character_list) do
-    Enum.reduce(character_list, [], fn character, matches ->
-      if character != "" do
-        matches ++ [character]
-      else
-        matches
-      end
-    end)
   end
 
   defp compare_words(word_1, word_2) do
@@ -141,5 +128,15 @@ defmodule AdventOfCode2018.Day02 do
 
   defp matching_character(character_1, character_2) when character_1 == character_2, do: [character_1]
   defp matching_character(_, _), do: [""]
+
+  defp count_character_matches(character_list) do
+    Enum.reduce(character_list, [], fn character, matches ->
+      if character != "" do
+        matches ++ [character]
+      else
+        matches
+      end
+    end)
+  end
 
 end
