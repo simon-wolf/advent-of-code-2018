@@ -9,11 +9,9 @@ defmodule AdventOfCode2018.Day02Test do
     assert result == 12
   end
 
-  @tag :skip
   test "part2" do
-    input = nil
-    result = part2(input)
-
-    assert result
+    file_path = "./data/day_02_task_02_test_01.txt"
+    result = part2(file_path)
+    assert result == "fgij"
   end
 end
