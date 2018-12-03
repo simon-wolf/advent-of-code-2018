@@ -75,9 +75,11 @@ defmodule AdventOfCode2018.Day02 do
 	end
 
   @doc """
-  Confident that your list of box IDs is complete, you're ready to find the boxes full of prototype fabric.
+  Confident that your list of box IDs is complete, you're ready to find the
+  boxes full of prototype fabric.
 
-  The boxes will have IDs which differ by exactly one character at the same position in both strings. For example, given the following box IDs:
+  The boxes will have IDs which differ by exactly one character at the same
+  position in both strings. For example, given the following box IDs:
 
   abcde
   fghij
@@ -86,10 +88,58 @@ defmodule AdventOfCode2018.Day02 do
   fguij
   axcye
   wvxyz
-  The IDs abcde and axcye are close, but they differ by two characters (the second and fourth). However, the IDs fghij and fguij differ by exactly one character, the third (h and u). Those must be the correct boxes.
 
-  What letters are common between the two correct box IDs? (In the example above, this is found by removing the differing character from either ID, producing fgij.)
+  The IDs abcde and axcye are close, but they differ by two characters (the
+  second and fourth). However, the IDs fghij and fguij differ by exactly one
+  character, the third (h and u). Those must be the correct boxes.
+
+  What letters are common between the two correct box IDs? (In the example
+  above, this is found by removing the differing character from either ID,
+  producing fgij.)
   """
   def part2(file_path) do
+    word_list = file_path
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+    |> Enum.to_list()
+
+    # words_length = Enum.reduce(word_list, 0, fn word ->
+    #   String.length(word)
+    # end)
+    # IO.inspect words_length
+
+    pairings = for word_a <- word_list, word_b <- word_list, word_a != word_b, do: {word_a, word_b}
+
+    Enum.reduce_while(pairings, nil, fn {word_a, word_b}, _ ->
+      matches = matched_letters(word_a, word_b)
+      if String.length(matches) == 26, do: {:halt, matches}, else: {:cont, word_a}
+    end)
   end
+
+  def matched_letters(word_1, word_2) do
+    compare_words(word_1, word_2)
+    |> count_character_matches()
+    |> List.to_string()
+  end
+
+  defp count_character_matches(character_list) do
+    Enum.reduce(character_list, [], fn character, matches ->
+      if character != "" do
+        matches ++ [character]
+      else
+        matches
+      end
+    end)
+  end
+
+  defp compare_words(word_1, word_2) do
+    String.graphemes(word_1)
+    |> Enum.reduce([], fn character, matches ->
+      matches ++ matching_character(character, String.at(word_2, length(matches)))
+    end)
+  end
+
+  defp matching_character(character_1, character_2) when character_1 == character_2, do: [character_1]
+  defp matching_character(_, _), do: [""]
+
 end
