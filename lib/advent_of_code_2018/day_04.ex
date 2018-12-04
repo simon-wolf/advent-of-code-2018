@@ -114,13 +114,48 @@ defmodule AdventOfCode2018.Day04 do
     end)
     |> elem(0)
 
-    optimal_minute = sleepiest_minute_for_guard(sleep_times, sleepiest_guard)
+    {optimal_minute, _occurrence_count} = sleepiest_minute_for_guard(sleep_times, sleepiest_guard)
 
     sleepiest_guard * optimal_minute
   end
 
-  def part2(args) do
-    args
+  @doc """
+  Strategy 2: Of all guards, which guard is most frequently asleep on the same 
+  minute?
+
+  In the example above, Guard #99 spent minute 45 asleep more than any other 
+  guard or minute - three times in total. (In all other cases, any guard spent 
+  any minute asleep at most twice.)
+
+  What is the ID of the guard you chose multiplied by the minute you chose? 
+  (In the above example, the answer would be 99 * 45 = 4455.)
+  """
+  def part2(file_path) do
+    sleep_times_for_guards = file_path
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+    |> Enum.to_list()
+    |> data_to_structs()
+    |> sort_structs()
+    |> generate_sleep_times()
+
+    {guard_id, minute, _occurrence} = sleep_times_for_guards
+    |> Enum.reduce(MapSet.new(), fn sleep_time, acc ->
+      MapSet.put(acc, sleep_time.guard)
+    end)
+    |> Enum.reduce(%{}, fn guard_id, acc ->
+      Map.put(acc, guard_id, sleepiest_minute_for_guard(sleep_times_for_guards, guard_id))
+    end)
+    |> Enum.reduce({0, 0, 0}, fn guard_info, {acc_guard_id, acc_minute, acc_count} = acc ->
+      {guard_id, {minute_number, occurrence_count}} = guard_info
+      if occurrence_count > acc_count do
+        {guard_id, minute_number, occurrence_count}
+      else
+        acc
+      end
+    end)
+
+    guard_id * minute
   end
 
   defp data_to_structs(data_lines) do
@@ -177,7 +212,6 @@ defmodule AdventOfCode2018.Day04 do
         end
       end
     end)
-    |> elem(0)
   end
 
   defp minutes_in_sleep_time(sleep_time) do
