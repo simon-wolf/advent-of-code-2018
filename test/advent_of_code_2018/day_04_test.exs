@@ -3,12 +3,10 @@ defmodule AdventOfCode2018.Day04Test do
 
   import AdventOfCode2018.Day04
 
-  @tag :skip
   test "part1" do
-    input = nil 
-    result = part1(input)
-
-    assert result
+    file_path = "./data/day_04_task_01_test_01.txt"
+    result = part1(file_path)
+    assert result == 240
   end
 
   @tag :skip
