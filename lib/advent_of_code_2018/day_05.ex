@@ -39,11 +39,11 @@ defmodule AdventOfCode2018.Day05 do
   How many units remain after fully reacting the polymer you scanned?
   """
   def part1(file_path) do
-    polymer = file_path
+    file_path
     |> File.read!()
-
-    scan_polymer(polymer, 0, String.length(polymer))
-    |> String.length
+    |> String.to_charlist()
+    |> scan_polymer()
+    |> Enum.count()
   end
 
   @doc """
@@ -76,72 +76,57 @@ defmodule AdventOfCode2018.Day05 do
     polymer = file_path
     |> File.read!()
 
-    units = polymer
-    |> String.upcase()
-    |> String.graphemes()
-    |> MapSet.new()
-    |> MapSet.to_list()
-
-    unit_totals = Enum.reduce(units, %{}, fn unit, acc -> 
-      length = polymer
-      |> String.replace(String.upcase(unit), "")
-      |> String.replace(String.downcase(unit), "")
-      |> scan_polymer(0, String.length(polymer))
-      |> String.length
-      
-      Map.put(acc, unit, length)
-    end)
-
-    {_unit, polymer_length} = units
-    |> Enum.reduce({"", 100000}, fn unit, acc -> 
-      character_count = Map.get(unit_totals, unit)
-      if character_count < elem(acc, 1) do
-        {unit, character_count}
-      else
-        acc
-      end
-    end)
-    
-    polymer_length
-  end
-
-
-  defp scan_polymer(polymer, index, length) when index < (length - 1) do
     polymer
-    |> String.slice(index, 2)
-    |> String.graphemes()
-
-    prefix = prefix(polymer, index)
-
-    suffix = suffix(polymer, index, length)
-
-    scanned_polymer = merge(String.slice(polymer, index, 1), String.slice(polymer, index + 1, 1))
-
-    new_polymer = prefix <> scanned_polymer <> suffix
-    new_polymer_length = String.length(new_polymer)
-
-    new_index = if length > new_polymer_length do
-      if index > 1 do
-        index - 1
-      else
-        0
-      end
-    else
-      index + 1
-    end
-
-    scan_polymer(new_polymer, new_index, String.length(new_polymer))
+    |> String.upcase
+    |> String.graphemes
+    |> Enum.uniq
+    |> polymers_excluding_letters(polymer)
+    |> Map.values
+    |> Enum.min
   end
-  defp scan_polymer(polymer, _index, _length), do: polymer
+
+  defp polymers_excluding_letters(letters, polymer) do
+    letters
+    |> Enum.reduce(%{}, fn letter, acc -> 
+      length = String.graphemes(polymer)
+      |> Enum.reject(fn x -> x == String.upcase(letter) end)
+      |> Enum.reject(fn x -> x == String.downcase(letter) end)
+      |> List.to_string
+      |> String.to_charlist
+      |> scan_polymer
+      |> Enum.count
   
-  defp prefix(polymer, index) when index > 0, do: String.slice(polymer, 0..index - 1)
-  defp prefix(_polymer, _index), do: ""
+      Map.put(acc, letter, length)
+    end)
+  end
 
-  defp suffix(polymer, index, length) when index + 2 < length, do: String.slice(polymer, index + 2..-1)
-  defp suffix(_polymer, _index, _length), do: ""
+  # The entry point for scanning a character list to remove pairs
+  defp scan_polymer(polymer) do
+    scan(polymer, _new_polymer = [], _polymer_length = Enum.count(polymer))
+  end
 
-  defp merge(first, second), do: merge(first, second, String.upcase(first), String.upcase(second))
-  defp merge(first, second, upcase_first, upcase_second) when upcase_first == upcase_second and first != second, do: ""
-  defp merge(first, second, _upcase_first, _upcase_second), do: first <> second
+  # Pattern match the various polymer character states and keep track of 
+  # whether the polymer's start length so that we can check if it has changed
+  defp scan([a, b | tail], new_polymer, polymer_length) when abs(a - b) == 32 do
+    scan(tail, new_polymer, polymer_length)
+  end
+
+  defp scan([a, b | tail], new_polymer, polymer_length) do
+    scan([b | tail], [a | new_polymer], polymer_length)
+  end
+
+  defp scan([b], new_polymer, polymer_length) do
+    scan([], [b | new_polymer], polymer_length)
+  end
+
+  defp scan([], new_polymer, polymer_length) do
+    if polymer_length != Enum.count(new_polymer) do
+      new_polymer
+      |> Enum.reverse()
+      |> scan_polymer()
+    else
+      Enum.reverse(new_polymer)
+    end
+  end
 
 end
