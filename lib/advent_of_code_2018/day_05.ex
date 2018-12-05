@@ -73,7 +73,36 @@ defmodule AdventOfCode2018.Day05 do
   units of exactly one type and fully reacting the result?
   """
   def part2(file_path) do
-    file_path
+    polymer = file_path
+    |> File.read!()
+
+    units = polymer
+    |> String.upcase()
+    |> String.graphemes()
+    |> MapSet.new()
+    |> MapSet.to_list()
+
+    unit_totals = Enum.reduce(units, %{}, fn unit, acc -> 
+      length = polymer
+      |> String.replace(String.upcase(unit), "")
+      |> String.replace(String.downcase(unit), "")
+      |> scan_polymer(0, String.length(polymer))
+      |> String.length
+      
+      Map.put(acc, unit, length)
+    end)
+
+    {_unit, polymer_length} = units
+    |> Enum.reduce({"", 100000}, fn unit, acc -> 
+      character_count = Map.get(unit_totals, unit)
+      if character_count < elem(acc, 1) do
+        {unit, character_count}
+      else
+        acc
+      end
+    end)
+    
+    polymer_length
   end
 
 
@@ -100,8 +129,6 @@ defmodule AdventOfCode2018.Day05 do
     else
       index + 1
     end
-
-    IO.inspect new_index, label: "Index"
 
     scan_polymer(new_polymer, new_index, String.length(new_polymer))
   end
