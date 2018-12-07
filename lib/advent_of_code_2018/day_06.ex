@@ -8,24 +8,24 @@ defmodule AdventOfCode2018.Day06 do
   @doc """
   --- Day 6: Chronal Coordinates ---
 
-  The device on your wrist beeps several times, and once again you feel like 
+  The device on your wrist beeps several times, and once again you feel like
   you're falling.
 
-  "Situation critical," the device announces. "Destination indeterminate. 
+  "Situation critical," the device announces. "Destination indeterminate.
   Chronal interference detected. Please specify new target coordinates."
 
-  The device then produces a list of coordinates (your puzzle input). Are they 
-  places it thinks are safe or dangerous? It recommends you check manual page 
+  The device then produces a list of coordinates (your puzzle input). Are they
+  places it thinks are safe or dangerous? It recommends you check manual page
   729. The Elves did not give you a manual.
 
-  If they're dangerous, maybe you can minimize the danger by finding the 
+  If they're dangerous, maybe you can minimize the danger by finding the
   coordinate that gives the largest distance from the other points.
 
-  Using only the Manhattan distance, determine the area around each coordinate 
-  by counting the number of integer X,Y locations that are closest to that 
+  Using only the Manhattan distance, determine the area around each coordinate
+  by counting the number of integer X,Y locations that are closest to that
   coordinate (and aren't tied in distance to any other coordinate).
 
-  Your goal is to find the size of the largest area that isn't infinite. For 
+  Your goal is to find the size of the largest area that isn't infinite. For
   example, consider the following list of coordinates:
 
   1, 1
@@ -35,7 +35,7 @@ defmodule AdventOfCode2018.Day06 do
   5, 5
   8, 9
 
-  If we name these coordinates A through F, we can draw them on a grid, putting 
+  If we name these coordinates A through F, we can draw them on a grid, putting
   0,0 at the top left:
 
   ..........
@@ -49,8 +49,8 @@ defmodule AdventOfCode2018.Day06 do
   ..........
   ........F.
 
-  This view is partial - the actual grid extends infinitely in all directions. 
-  Using the Manhattan distance, each location's closest coordinate can be 
+  This view is partial - the actual grid extends infinitely in all directions.
+  Using the Manhattan distance, each location's closest coordinate can be
   determined, shown here in lowercase:
 
   aaaaa.cccc
@@ -64,13 +64,13 @@ defmodule AdventOfCode2018.Day06 do
   bbb.eeffff
   bbb.ffffFf
 
-  Locations shown as . are equally far from two or more coordinates, and so 
+  Locations shown as . are equally far from two or more coordinates, and so
   they don't count as being closest to any.
 
-  In this example, the areas of coordinates A, B, C, and F are infinite - while 
-  not shown here, their areas extend forever outside the visible grid. However, 
-  the areas of coordinates D and E are finite: D is closest to 9 locations, and 
-  E is closest to 17 (both including the coordinate's location itself). 
+  In this example, the areas of coordinates A, B, C, and F are infinite - while
+  not shown here, their areas extend forever outside the visible grid. However,
+  the areas of coordinates D and E are finite: D is closest to 9 locations, and
+  E is closest to 17 (both including the coordinate's location itself).
   Therefore, in this example, the size of the largest area is 17.
 
   What is the size of the largest area that isn't infinite?
@@ -80,7 +80,7 @@ defmodule AdventOfCode2018.Day06 do
     |> File.stream!()
     |> Stream.map(&String.trim/1)
     |> parse_coordinate_strings()
-    
+
     outer_coords = outer_coordinates(coords)
 
     coords = flag_infinite(coords, outer_coords)
@@ -89,10 +89,15 @@ defmodule AdventOfCode2018.Day06 do
     max_x = Map.get(outer_coords, :max_x, 0)
     min_y = Map.get(outer_coords, :min_y, 0)
     max_y = Map.get(outer_coords, :max_y, 0)
+    # min_x = 0
+    # max_x = 900
+    # min_y = 0
+    # max_y = 900
 
     locations = Enum.reduce(min_x..max_x, %{}, fn x_position, x_acc ->
       Enum.reduce(min_y..max_y, x_acc, fn y_position, y_acc ->
         Enum.reduce(coords, y_acc, fn coord, coord_acc ->
+
           # Get the existing map data or create new data
           {stored_coordinate_id, stored_distance} = Map.get(coord_acc, {x_position, y_position}, {-1, -1})
 
@@ -114,40 +119,57 @@ defmodule AdventOfCode2018.Day06 do
         end)
       end)
     end)
+
+    infinite_ccs = locations
+    |> Enum.reduce(MapSet.new(), fn location, acc ->
+      {{x_position, y_position}, {id, _distance}} = location
+
+      cond do
+        x_position == min_x ->
+          MapSet.put(acc, id)
+        y_position == min_y ->
+          MapSet.put(acc, id)
+        x_position == max_x ->
+          MapSet.put(acc, id)
+        y_position == max_y ->
+          MapSet.put(acc, id)
+        true ->
+          acc
+      end
+    end)
+    |> MapSet.to_list()
+
+    location_counts = locations
     |> Map.values
-    |> Enum.reduce(%{}, fn {owner, distance}, acc ->
+    |> Enum.reduce(%{}, fn {owner, _distance}, acc ->
       count = Map.get(acc, owner, 0)
       Map.put(acc, owner, count + 1)
     end)
 
-    Enum.reduce(coords, 0, fn coord, acc -> 
-      # if coord.infinite? == false do
-      #   count = Map.get(locations, coord.id)
-      #   if count > acc do
-      #     count
-      #   else
-      #     acc
-      #   end
-      # else
-      #   acc
-      # end
+    Enum.reduce(location_counts, -1, fn location_info, acc ->
+      location = elem(location_info, 0)
+      count = elem(location_info, 1)
 
-      if coord.infinite? == false do
-        IO.inspect Map.get(locations, coord.id), label: "Not Infinite"
+      if location in infinite_ccs do
+        acc
       else
-        IO.inspect Map.get(locations, coord.id), label: "Infinite"
+        if count > acc do
+          count
+        else
+          acc
+        end
       end
-      0
     end)
   end
 
   def part2(args) do
+    args
   end
 
   # Convert the string coordinate values into ChronalCoordinates strucs
   defp parse_coordinate_strings(raw_coordinates) do
     raw_coordinates
-    |> Enum.reduce([], fn coordinate_pair, acc -> 
+    |> Enum.reduce([], fn coordinate_pair, acc ->
       coords = coordinate_pair
       |> String.split(",")
       |> Enum.map(&String.trim/1)
@@ -171,7 +193,7 @@ defmodule AdventOfCode2018.Day06 do
   # Update the ChronalCoordinates structs to say if an item is on the edge of
   # the 'containing box' and therefore infinitely big
   defp flag_infinite(coordinates, outer_coords) do
-    Enum.map(coordinates, fn cc -> 
+    Enum.map(coordinates, fn cc ->
       Map.put(cc, :infinite?, is_infinite?(cc, outer_coords))
     end)
   end
