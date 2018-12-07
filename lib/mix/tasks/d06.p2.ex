@@ -8,7 +8,7 @@ defmodule Mix.Tasks.D06.P2 do
     input = nil
 
     input
-    |> part2() 
+    |> part2(0) 
     |> IO.inspect(label: "Part 2 Results") 
   end
 end   
