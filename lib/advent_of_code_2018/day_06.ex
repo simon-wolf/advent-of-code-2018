@@ -1,5 +1,5 @@
 defmodule ChronalCoordinates do
-  defstruct x: -1, y: -1, id: -1, infinite?: false
+  defstruct x: -1, y: -1, id: -1
 end
 
 defmodule AdventOfCode2018.Day06 do
@@ -83,16 +83,10 @@ defmodule AdventOfCode2018.Day06 do
 
     outer_coords = outer_coordinates(coords)
 
-    coords = flag_infinite(coords, outer_coords)
-
     min_x = Map.get(outer_coords, :min_x, 0)
     max_x = Map.get(outer_coords, :max_x, 0)
     min_y = Map.get(outer_coords, :min_y, 0)
     max_y = Map.get(outer_coords, :max_y, 0)
-    # min_x = 0
-    # max_x = 900
-    # min_y = 0
-    # max_y = 900
 
     locations = Enum.reduce(min_x..max_x, %{}, fn x_position, x_acc ->
       Enum.reduce(min_y..max_y, x_acc, fn y_position, y_acc ->
@@ -162,9 +156,85 @@ defmodule AdventOfCode2018.Day06 do
     end)
   end
 
-  def part2(args) do
-    args
+  @doc """
+  --- Part Two ---
+
+  On the other hand, if the coordinates are safe, maybe the best you can do is
+  try to find a region near as many coordinates as possible.
+
+  For example, suppose you want the sum of the Manhattan distance to all of the
+  coordinates to be less than 32. For each location, add up the distances to
+  all of the given coordinates; if the total of those distances is less than
+  32, that location is within the desired region. Using the same coordinates as
+  above, the resulting region looks like this:
+
+  ..........
+  .A........
+  ..........
+  ...###..C.
+  ..#D###...
+  ..###E#...
+  .B.###....
+  ..........
+  ..........
+  ........F.
+
+  In particular, consider the highlighted location 4,3 located at the top
+  middle of the region. Its calculation is as follows, where abs() is the
+  absolute value function:
+
+  Distance to coordinate A: abs(4-1) + abs(3-1) =  5
+  Distance to coordinate B: abs(4-1) + abs(3-6) =  6
+  Distance to coordinate C: abs(4-8) + abs(3-3) =  4
+  Distance to coordinate D: abs(4-3) + abs(3-4) =  2
+  Distance to coordinate E: abs(4-5) + abs(3-5) =  3
+  Distance to coordinate F: abs(4-8) + abs(3-9) = 10
+  Total distance: 5 + 6 + 4 + 2 + 3 + 10 = 30
+
+  Because the total distance to all coordinates (30) is less than 32, the
+  location is within the region.
+
+  This region, which also includes coordinates D and E, has a total size of 16.
+
+  Your actual region will need to be much larger than this example, though,
+  instead including all locations with a total distance of less than 10000.
+
+  What is the size of the region containing all locations which have a total
+  distance to all given coordinates of less than 10000?
+  """
+  def part2(file_path, distance_limit) do
+    coords = file_path
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+    |> parse_coordinate_strings()
+
+    outer_coords = outer_coordinates(coords)
+
+    min_x = Map.get(outer_coords, :min_x, 0)
+    max_x = Map.get(outer_coords, :max_x, 0)
+    min_y = Map.get(outer_coords, :min_y, 0)
+    max_y = Map.get(outer_coords, :max_y, 0)
+
+    Enum.reduce(min_x..max_x, %{}, fn x_position, x_acc ->
+      Enum.reduce(min_y..max_y, x_acc, fn y_position, y_acc ->
+        total = Enum.reduce(coords, 0, fn coord, acc ->
+          dist = manhattan_distance(x_position, y_position, Map.get(coord, :x), Map.get(coord, :y))
+          acc + dist
+        end)
+
+        if total < distance_limit do
+          Map.put(y_acc, {x_position, y_position}, total)
+        else
+          y_acc
+        end
+      end)
+    end)
+    |> Map.values()
+    |> length()
   end
+
+
+
 
   # Convert the string coordinate values into ChronalCoordinates strucs
   defp parse_coordinate_strings(raw_coordinates) do
@@ -188,20 +258,6 @@ defmodule AdventOfCode2018.Day06 do
     max_x = Enum.max_by(coordinates, fn coord -> Map.get(coord, :x) end) |> Map.get(:x)
     max_y = Enum.max_by(coordinates, fn coord -> Map.get(coord, :y) end) |> Map.get(:y)
     %{:min_x => min_x, :min_y => min_y, :max_x => max_x, :max_y => max_y}
-  end
-
-  # Update the ChronalCoordinates structs to say if an item is on the edge of
-  # the 'containing box' and therefore infinitely big
-  defp flag_infinite(coordinates, outer_coords) do
-    Enum.map(coordinates, fn cc ->
-      Map.put(cc, :infinite?, is_infinite?(cc, outer_coords))
-    end)
-  end
-  defp is_infinite?(%ChronalCoordinates{x: x, y: y}, %{min_x: min_x, min_y: min_y, max_x: max_x, max_y: max_y}) when x <= min_x or y <= min_y or x >= max_x or y >= max_y do
-    true
-  end
-  defp is_infinite?(_, _) do
-    false
   end
 
   # Manhattan distance between two coordinates
