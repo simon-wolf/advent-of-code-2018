@@ -110,15 +110,13 @@ defmodule AdventOfCode2018.Day11 do
 
   defp get_best_square(serial_number, grid_min_size, grid_max_size) do
     grid = build_grid(serial_number)
+    summed_area_table = build_summed_area_table(grid)
 
     Enum.reduce(grid_min_size..grid_max_size, {{0, 0}, 0, 0}, fn size, acc ->
-      IO.puts "Squares of " <> Integer.to_string(size) <> "..."
       Enum.reduce(1..300 - size + 1, acc, fn x, acc -> 
-        Enum.reduce(1..300 - size + 1, acc, fn y, acc -> 
-          # IO.puts "Get area for " <> Integer.to_string(x) <> ", " <> Integer.to_string(y) <> " (" <> Integer.to_string(size) <> ")"
-          total = get_area_total(grid, x, y, size)
+        Enum.reduce(1..300 - size + 1, acc, fn y, {{best_x, best_y}, best_size, best_total} -> 
+          total = get_area_total(summed_area_table, x, y, size)
 
-          {{best_x, best_y}, best_size, best_total} = acc
           if total > best_total do
             {{x, y}, size, total}
           else
@@ -129,12 +127,13 @@ defmodule AdventOfCode2018.Day11 do
     end)
   end
 
-  defp get_area_total(grid, x, y, size) do
-    Enum.reduce(x..x + size - 1, 0, fn x_coord, acc ->
-      Enum.reduce(y..y + size - 1, acc, fn y_coord, acc ->
-        acc + Map.get(grid, {x_coord, y_coord})
-      end)
-    end)
+  defp get_area_total(summed_area_table, x, y, size) do
+    top_left = Map.get(summed_area_table, {x - 1, y - 1}, 0)
+    bottom_right = Map.get(summed_area_table, {x + size - 1, y + size - 1}, 0)
+    top_right = Map.get(summed_area_table, {x + size - 1, y - 1}, 0)
+    bottom_left = Map.get(summed_area_table, {x - 1, y + size - 1}, 0)
+    
+    top_left + bottom_right - top_right - bottom_left
   end
 
   defp build_grid(serial_number) do
@@ -161,6 +160,35 @@ defmodule AdventOfCode2018.Day11 do
     end
 
     power_level - 5
+  end
+
+  defp build_summed_area_table(grid) do
+    Enum.reduce(1..300, %{}, fn x, acc -> 
+      Enum.reduce(1..300, acc, fn y, acc -> 
+        summed_area(acc, grid, x, y)
+      end)
+    end)
+  end
+
+  defp summed_area(new_grid, base_grid, 1, 1) do
+    Map.put(new_grid, {1, 1}, Map.get(base_grid, {1, 1}))
+  end
+
+  defp summed_area(new_grid, base_grid, x, 1) do
+    Map.put(new_grid, {x, 1}, Map.get(base_grid, {x, 1}) + Map.get(new_grid, {x - 1, 1}))
+  end
+
+  defp summed_area(new_grid, base_grid, 1, y) do
+    Map.put(new_grid, {1, y}, Map.get(base_grid, {1, y}) + Map.get(new_grid, {1, y - 1}))
+  end
+
+  defp summed_area(new_grid, base_grid, x, y) do
+    base = Map.get(new_grid, {x - 1, y - 1})
+    previous_x = Map.get(new_grid, {x - 1, y}) - base
+    previous_y = Map.get(new_grid, {x, y - 1}) - base
+    value = Map.get(base_grid, {x, y})
+
+    Map.put(new_grid, {x, y}, base + previous_x + previous_y + value)
   end
 
 end
