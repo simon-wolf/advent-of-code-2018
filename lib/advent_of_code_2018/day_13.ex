@@ -196,7 +196,7 @@ defmodule AdventOfCode2018.Day13 do
   def part1(file_path) do
     {track_elements, carts_info} = parse_data_file(file_path)
 
-    {x, y, tick} = move_carts(1, track_elements, carts_info)
+    {x, y} = move_carts_until_crash(track_elements, carts_info)
   end
 
   @doc """
@@ -248,10 +248,14 @@ defmodule AdventOfCode2018.Day13 do
   What is the location of the last cart at the end of the first tick where it 
   is the only cart left?
   """
-  def part2(args) do
+  def part2(file_path) do
+    {track_elements, carts_info} = parse_data_file(file_path)
+
+    {x, y} = move_carts_ignoring_crashes(track_elements, carts_info)
   end
 
-
+  # Create two maps; one containing the track elements and the other 
+  # information about the carts. Merge in the per-line maps.
   defp parse_data_file(file_path) do
     lines_map = map_file_lines(file_path)
 
@@ -261,6 +265,9 @@ defmodule AdventOfCode2018.Day13 do
     end)
   end
 
+  # Turn the file lines into a map where the key is the line index and the 
+  # value is the line string. The line strings are tail trimmed to remove
+  # whitespace and newline characters
   defp map_file_lines(file_path) do
     file_path
     |> File.stream!()
@@ -271,6 +278,8 @@ defmodule AdventOfCode2018.Day13 do
     end)
   end
 
+  # Enumerate through the graphemes in each line string and update the 
+  # per-line information maps
   defp parse_map_line(line_string, line_index) do
     characters = String.graphemes(line_string)
 
@@ -280,110 +289,164 @@ defmodule AdventOfCode2018.Day13 do
     end)
   end
 
-  defp parse_map_character(" ", x, y, track_elements, carts_info), do: {track_elements, carts_info}
-  defp parse_map_character("", x, y, track_elements, carts_info), do: {track_elements, carts_info}
-  defp parse_map_character("<" = character, x, y, track_elements, carts_info), do: {Map.put(track_elements, {x, y}, character), Map.put(carts_info, {x, y}, {:left, :junction_go_left})}
-  defp parse_map_character(">" = character, x, y, track_elements, carts_info), do: {Map.put(track_elements, {x, y}, character), Map.put(carts_info, {x, y}, {:right, :junction_go_left})}
-  defp parse_map_character("^" = character, x, y, track_elements, carts_info), do: {Map.put(track_elements, {x, y}, character), Map.put(carts_info, {x, y}, {:up, :junction_go_left})}
-  defp parse_map_character("v" = character, x, y, track_elements, carts_info), do: {Map.put(track_elements, {x, y}, character), Map.put(carts_info, {x, y}, {:down, :junction_go_left})}
+  # Ignore whitespace and zero-length strings. Update both maps if the 
+  # character represents a cart and just update the track map for all other 
+  # characters
+  defp parse_map_character(" ", _x, _y, track_elements, carts_info), do: {track_elements, carts_info}
+  defp parse_map_character("", _x, _y, track_elements, carts_info), do: {track_elements, carts_info}
+  defp parse_map_character("<" = character, x, y, track_elements, carts_info), do: {Map.put(track_elements, {x, y}, "-"), Map.put(carts_info, {x, y}, {:left, :junction_go_left})}
+  defp parse_map_character(">" = character, x, y, track_elements, carts_info), do: {Map.put(track_elements, {x, y}, "-"), Map.put(carts_info, {x, y}, {:right, :junction_go_left})}
+  defp parse_map_character("^" = character, x, y, track_elements, carts_info), do: {Map.put(track_elements, {x, y}, "|"), Map.put(carts_info, {x, y}, {:up, :junction_go_left})}
+  defp parse_map_character("v" = character, x, y, track_elements, carts_info), do: {Map.put(track_elements, {x, y}, "|"), Map.put(carts_info, {x, y}, {:down, :junction_go_left})}
   defp parse_map_character(character, x, y, track_elements, carts_info), do: {Map.put(track_elements, {x, y}, character), carts_info}
 
-
-
-  
-
-
-
-  defp move_carts(tick, track_elements, carts_info) do
+  defp move_carts_until_crash(track_elements, carts_info) do
     sorted_cart_keys = sorted_cart_identifiers(carts_info)
-    
-    {{x, y, crash}, carts_info} = Enum.reduce_while(sorted_cart_keys, {{0, 0, false}, carts_info}, fn {x, y}, {_, carts_info} = acc ->
-      {direction, next_turn_direction} = Map.get(carts_info, {x, y})
-      {new_x, new_y} = case direction do
-        :left -> {x - 1, y}
-        :up -> {x, y - 1}
-        :right -> {x + 1, y}
-        :down -> {x, y + 1}
-        _ -> {x, y}
-      end
 
-      # Check if the move will cause a crash
-      if Map.has_key?(carts_info, {new_x, new_y}) == true do
-        {:halt, {{new_x, new_y, true}, carts_info}}
-      else
-        # Remove the original cart position
-        carts_info = Map.delete(carts_info, {x, y})
+    case first_crash_in_tick(sorted_cart_keys, carts_info) do
+      {_, {-1, -1}} -> 
+        new_carts_info = update_cart_positions(track_elements, carts_info)
+        move_carts_until_crash(track_elements, new_carts_info)
+      {_, {x, y}} ->
+        {x, y}
+    end
+  end
 
-        track_element_character = Map.get(track_elements, {new_x, new_y})
+  defp move_carts_ignoring_crashes(track_elements, carts_info) do
+    sorted_cart_keys = sorted_cart_identifiers(carts_info)
 
-        carts_info = case track_element_character do
-          "-" ->
-            Map.put(carts_info, {new_x, new_y}, {direction, next_turn_direction})
-          "|" ->
-            Map.put(carts_info, {new_x, new_y}, {direction, next_turn_direction})
-          "/" ->
-            new_direction = case direction do
-              :left -> :down
-              :up -> :right
-              :right -> :up
-              :down -> :left
-              _ -> direction
-            end
-            Map.put(carts_info, {new_x, new_y}, {new_direction, next_turn_direction})
-          "\\" ->
-            new_direction = case direction do
-              :left -> :up
-              :up -> :left
-              :right -> :down
-              :down -> :right
-              _ -> direction
-            end
-            Map.put(carts_info, {new_x, new_y}, {new_direction, next_turn_direction})
-          "+" ->
-            {new_direction, new_next_turn_direction} = case {direction, next_turn_direction} do
-              {:left, :junction_go_left} -> {:down, :junction_go_straight}
-              {:up, :junction_go_left} -> {:left, :junction_go_straight}
-              {:right, :junction_go_left} -> {:up, :junction_go_straight}
-              {:down, :junction_go_left} -> {:right, :junction_go_straight}
-
-              {:left, :junction_go_straight} -> {:left, :junction_go_right}
-              {:up, :junction_go_straight} -> {:up, :junction_go_right}
-              {:right, :junction_go_straight} -> {:right, :junction_go_right}
-              {:down, :junction_go_straight} -> {:down, :junction_go_right}
-
-              {:left, :junction_go_right} -> {:up, :junction_go_left}
-              {:up, :junction_go_right} -> {:right, :junction_go_left}
-              {:right, :junction_go_right} -> {:down, :junction_go_left}
-              {:down, :junction_go_right} -> {:left, :junction_go_left}
-              _ -> {direction, next_turn_direction}
-            end
-            Map.put(carts_info, {new_x, new_y}, {new_direction, new_next_turn_direction})
-          ">" ->
-            Map.put(carts_info, {new_x, new_y}, {direction, next_turn_direction})
-          "<" ->
-            Map.put(carts_info, {new_x, new_y}, {direction, next_turn_direction})
-          "^" ->
-            Map.put(carts_info, {new_x, new_y}, {direction, next_turn_direction})
-          "v" ->
-            Map.put(carts_info, {new_x, new_y}, {direction, next_turn_direction})
-          _ ->
-            IO.puts "INVALID CHARACTER: =" <> track_element_character <> "= @ " <> Integer.to_string(new_x) <> ", " <> Integer.to_string(new_y)
-            Map.put(carts_info, {new_x, new_y}, {direction, next_turn_direction})
-        end
-
-        {:cont, {{0, 0, false}, carts_info}}
-      end
+    trimmed_carts_info = crashed_carts(sorted_cart_keys, carts_info)
+    |> Enum.reduce(carts_info, fn crashed_coords, acc ->
+      Map.delete(acc, crashed_coords)
     end)
 
-    if crash == true do
-      {x, y, tick}
+    new_carts_info = update_cart_positions(track_elements, trimmed_carts_info)
+
+    # If there is only one cart left then return the key which is its
+    # coordinates, otherwise carry on ticking
+    if Map.keys(new_carts_info) |> length() == 1 do
+      Map.keys(new_carts_info) |> List.first()
     else
-      # Failsafe to catch infinite looping
-      if tick > 1_000_000 do
-        {-1, -1, -1}
-      else
-        move_carts(tick + 1, track_elements, carts_info)
+      move_carts_ignoring_crashes(track_elements, new_carts_info)
+    end
+  end
+
+  defp update_cart_positions(track_elements, carts_info) do
+    sorted_cart_keys = sorted_cart_identifiers(carts_info)
+
+    Enum.reduce(sorted_cart_keys, %{}, fn {x, y}, acc ->
+      {new_x, new_y} = new_coords_for_cart(carts_info, {x, y})
+      {direction, next_turn_direction} = Map.get(carts_info, {x, y})
+      track_element_character = Map.get(track_elements, {new_x, new_y})
+      
+      acc = case track_element_character do
+        "-" ->
+          Map.put(acc, {new_x, new_y}, {direction, next_turn_direction})
+        "|" ->
+          Map.put(acc, {new_x, new_y}, {direction, next_turn_direction})
+        "/" ->
+          new_direction = case direction do
+            :left -> :down
+            :up -> :right
+            :right -> :up
+            :down -> :left
+            _ -> direction
+          end
+          Map.put(acc, {new_x, new_y}, {new_direction, next_turn_direction})
+        "\\" ->
+          new_direction = case direction do
+            :left -> :up
+            :up -> :left
+            :right -> :down
+            :down -> :right
+            _ -> direction
+          end
+          Map.put(acc, {new_x, new_y}, {new_direction, next_turn_direction})
+        "+" ->
+          {new_direction, new_next_turn_direction} = case {direction, next_turn_direction} do
+            {:left, :junction_go_left} -> {:down, :junction_go_straight}
+            {:up, :junction_go_left} -> {:left, :junction_go_straight}
+            {:right, :junction_go_left} -> {:up, :junction_go_straight}
+            {:down, :junction_go_left} -> {:right, :junction_go_straight}
+
+            {:left, :junction_go_straight} -> {:left, :junction_go_right}
+            {:up, :junction_go_straight} -> {:up, :junction_go_right}
+            {:right, :junction_go_straight} -> {:right, :junction_go_right}
+            {:down, :junction_go_straight} -> {:down, :junction_go_right}
+
+            {:left, :junction_go_right} -> {:up, :junction_go_left}
+            {:up, :junction_go_right} -> {:right, :junction_go_left}
+            {:right, :junction_go_right} -> {:down, :junction_go_left}
+            {:down, :junction_go_right} -> {:left, :junction_go_left}
+            _ -> {direction, next_turn_direction}
+          end
+          Map.put(acc, {new_x, new_y}, {new_direction, new_next_turn_direction})
+        ">" ->
+          Map.put(acc, {new_x, new_y}, {direction, next_turn_direction})
+        "<" ->
+          Map.put(acc, {new_x, new_y}, {direction, next_turn_direction})
+        "^" ->
+          Map.put(acc, {new_x, new_y}, {direction, next_turn_direction})
+        "v" ->
+          Map.put(acc, {new_x, new_y}, {direction, next_turn_direction})
+        _ ->
+          IO.puts "INVALID CHARACTER: =" <> track_element_character <> "= @ " <> Integer.to_string(new_x) <> ", " <> Integer.to_string(new_y)
+          Map.put(acc, {new_x, new_y}, {direction, next_turn_direction})
       end
+    end)
+  end
+
+  # Returns x and y where crash occurs or {-1, -1} if no crash
+  defp first_crash_in_tick(sorted_cart_keys, carts_info) do
+    Enum.reduce_while(sorted_cart_keys, {Map.new(carts_info), {-1, -1}}, fn {x, y}, {new_carts_info, {crash_x, crash_y}} = acc ->
+      {new_x, new_y} = new_coords_for_cart(carts_info, {x, y})
+      {direction, next_turn_direction} = Map.get(carts_info, {x, y})
+
+      if Map.has_key?(new_carts_info, {new_x, new_y}) == true do
+        {:halt, {acc, {new_x, new_y}}}
+      else
+        modified_carts_info = new_carts_info
+        |> Map.delete({x, y})
+        |> Map.put({new_x, new_y}, {direction, next_turn_direction})
+
+        {:cont, {modified_carts_info, {crash_x, crash_y}}}
+      end
+    end)
+  end
+
+  # Returns a list of cart coordinates for carts which _will_ crash.
+  # These are not their new coordinates but rather their current ones at the 
+  # start of the tick
+  defp crashed_carts(sorted_cart_keys, carts_info) do
+    # sorted_cart_keys = sorted_cart_identifiers(carts_info)
+
+    Enum.reduce(sorted_cart_keys, MapSet.new(), fn {x, y}, acc ->
+      {new_x, new_y} = new_coords_for_cart(carts_info, {x, y})
+
+      # If the acc already contains the cart's coordinates then skip it
+      if MapSet.member?(acc, {x, y}) do
+        acc
+      else
+        if Map.has_key?(carts_info, {new_x, new_y}) == true do
+          acc
+          |> MapSet.put({x, y})
+          |> MapSet.put({new_x, new_y})
+        else
+          acc
+        end
+      end
+    end)
+    |> MapSet.to_list()
+  end  
+
+  defp new_coords_for_cart(carts_info, {x, y} = cart_key) do
+    {direction, _next_turn_direction} = Map.get(carts_info, cart_key)
+    case direction do
+      :left -> {x - 1, y}
+      :up -> {x, y - 1}
+      :right -> {x + 1, y}
+      :down -> {x, y + 1}
+      _ -> {x, y}
     end
   end
 
