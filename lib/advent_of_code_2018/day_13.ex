@@ -194,33 +194,7 @@ defmodule AdventOfCode2018.Day13 do
   In this example, the location of the first crash is 7,3.
   """
   def part1(file_path) do
-    {_, track_elements, carts_info} = file_path
-    |> File.stream!()
-    |> Enum.to_list()
-    |> Enum.reduce({ {0, 0}, %{}, %{} }, fn file_line, { {col_index, row_index}, track_elements, carts_info} = acc ->
-
-      { _, track_elements, carts_info} = String.graphemes(file_line)
-      |> Enum.reduce(acc, fn character, { {col_index, row_index}, track_elements, carts_info} = acc ->
-
-        new_track_elements = if character != "" do
-          Map.put(track_elements, {col_index, row_index}, character)
-        else
-          track_elements
-        end
-
-        new_carts_info = case character do
-          "<" -> Map.put(carts_info, {col_index, row_index}, {:left, :junction_go_left})
-          "^" -> Map.put(carts_info, {col_index, row_index}, {:up, :junction_go_left})
-          ">" -> Map.put(carts_info, {col_index, row_index}, {:right, :junction_go_left})
-          "v" -> Map.put(carts_info, {col_index, row_index}, {:down, :junction_go_left})
-          _ -> carts_info
-        end
-
-        { {col_index + 1, row_index}, new_track_elements, new_carts_info }
-      end)
-
-      { {0, row_index + 1}, track_elements, carts_info}
-    end)
+    {track_elements, carts_info} = parse_data_file(file_path)
 
     {x, y, tick} = move_carts(1, track_elements, carts_info)
   end
@@ -276,6 +250,47 @@ defmodule AdventOfCode2018.Day13 do
   """
   def part2(args) do
   end
+
+
+  defp parse_data_file(file_path) do
+    lines_map = map_file_lines(file_path)
+
+    Enum.reduce(Map.keys(lines_map), {%{}, %{}}, fn line_index, {track_elements, carts_info} ->
+      {new_track_elements, new_carts_info} = parse_map_line(Map.get(lines_map, line_index), line_index)
+      {Map.merge(track_elements, new_track_elements), Map.merge(carts_info, new_carts_info)}
+    end)
+  end
+
+  defp map_file_lines(file_path) do
+    file_path
+    |> File.stream!()
+    |> Stream.map(&String.trim_trailing/1)
+    |> Enum.to_list()
+    |> Enum.reduce(%{}, fn file_line, acc ->
+      Map.put(acc, map_size(acc), file_line)
+    end)
+  end
+
+  defp parse_map_line(line_string, line_index) do
+    characters = String.graphemes(line_string)
+
+    Enum.reduce(0..length(characters), {%{}, %{}}, fn character_index, {track_elements, carts_info}->
+      String.slice(line_string, character_index, 1)
+      |> parse_map_character(character_index, line_index, track_elements, carts_info)
+    end)
+  end
+
+  defp parse_map_character(" ", x, y, track_elements, carts_info), do: {track_elements, carts_info}
+  defp parse_map_character("", x, y, track_elements, carts_info), do: {track_elements, carts_info}
+  defp parse_map_character("<" = character, x, y, track_elements, carts_info), do: {Map.put(track_elements, {x, y}, character), Map.put(carts_info, {x, y}, {:left, :junction_go_left})}
+  defp parse_map_character(">" = character, x, y, track_elements, carts_info), do: {Map.put(track_elements, {x, y}, character), Map.put(carts_info, {x, y}, {:right, :junction_go_left})}
+  defp parse_map_character("^" = character, x, y, track_elements, carts_info), do: {Map.put(track_elements, {x, y}, character), Map.put(carts_info, {x, y}, {:up, :junction_go_left})}
+  defp parse_map_character("v" = character, x, y, track_elements, carts_info), do: {Map.put(track_elements, {x, y}, character), Map.put(carts_info, {x, y}, {:down, :junction_go_left})}
+  defp parse_map_character(character, x, y, track_elements, carts_info), do: {Map.put(track_elements, {x, y}, character), carts_info}
+
+
+
+  
 
 
 
