@@ -196,13 +196,17 @@ defmodule AdventOfCode2018.Day13 do
   def part1(file_path) do
     {_, track_elements, carts_info} = file_path
     |> File.stream!()
-    # |> Stream.map(&String.trim/1)
     |> Enum.to_list()
     |> Enum.reduce({ {0, 0}, %{}, %{} }, fn file_line, { {col_index, row_index}, track_elements, carts_info} = acc ->
 
       { _, track_elements, carts_info} = String.graphemes(file_line)
       |> Enum.reduce(acc, fn character, { {col_index, row_index}, track_elements, carts_info} = acc ->
-        new_track_elements = Map.put(track_elements, {col_index, row_index}, character)
+
+        new_track_elements = if character != "" do
+          Map.put(track_elements, {col_index, row_index}, character)
+        else
+          track_elements
+        end
 
         new_carts_info = case character do
           "<" -> Map.put(carts_info, {col_index, row_index}, {:left, :junction_go_left})
@@ -272,6 +276,8 @@ defmodule AdventOfCode2018.Day13 do
   """
   def part2(args) do
   end
+
+
 
   defp move_carts(tick, track_elements, carts_info) do
     sorted_cart_keys = sorted_cart_identifiers(carts_info)
@@ -357,6 +363,7 @@ defmodule AdventOfCode2018.Day13 do
     if crash == true do
       {x, y, tick}
     else
+      # Failsafe to catch infinite looping
       if tick > 1_000_000 do
         {-1, -1, -1}
       else
