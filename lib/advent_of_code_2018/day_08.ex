@@ -55,113 +55,89 @@ defmodule AdventOfCode2018.Day08 do
     |> File.read!()
     |> String.split()
     |> Enum.map(&String.to_integer/1)
+    |> parse_line([], [])
+
     # |> drill_down([])
     # |> Enum.sum()
-    |> reduce([], [])
-    |> Enum.sum()
+    # |> reduce([], %{}, 0)
+    # |> Enum.sum()
+
+    # 0
   end
 
+  @doc """
+  The second check is slightly more complicated: you need to find the value of 
+  the root node (A in the example above).
+
+  The value of a node depends on whether it has child nodes.
+
+  If a node has no child nodes, its value is the sum of its metadata entries. 
+  So, the value of node B is 10+11+12=33, and the value of node D is 99.
+
+  However, if a node does have child nodes, the metadata entries become 
+  indexes which refer to those child nodes. A metadata entry of 1 refers to the 
+  first child node, 2 to the second, 3 to the third, and so on. The value of 
+  this node is the sum of the values of the child nodes referenced by the 
+  metadata entries. If a referenced child node does not exist, that reference 
+  is skipped. A child node can be referenced multiple time and counts each time 
+  it is referenced. A metadata entry of 0 does not refer to any child node.
+
+  For example, again using the above nodes:
+
+  - Node C has one metadata entry, 2. Because node C has only one child node, 
+    2 references a child node which does not exist, and so the value of node C 
+    is 0.
+  - Node A has three metadata entries: 1, 1, and 2. The 1 references node A's 
+    first child node, B, and the 2 references node A's second child node, C. 
+    Because node B has a value of 33 and node C has a value of 0, the value of 
+    node A is 33+33+0=66.
+
+  So, in this example, the value of the root node is 66.
+
+  What is the value of the root node?
+  """
   def part2(_file_path) do
   end
 
-  # headers is an array of headers
-  defp reduce([0, count_of_metadata | tail] = metadata, [ {1, remainder} | other_headers], tally) do
-    metadata = Enum.slice(tail, 0..(count_of_metadata - 1 + remainder))
-    tally = metadata ++ tally
-
-    remainder = Enum.slice(tail, count_of_metadata..-1 + remainder)
-    # remainder = Enum.slice(tail, count_of_metadata..-1)
-
-    IO.puts "0"
-    IO.inspect remainder
-    IO.inspect other_headers
-    IO.inspect tally
-    IO.puts "---"
-    reduce(remainder, other_headers, tally)
+  defp parse_line([0, metadata_count | tail], [], metadata_list) do
+    parse_line([], [], tail ++ metadata_list)
   end
 
+  defp parse_line([0, metadata_count | tail], previous_headers, metadata_list) do
+    {new_metadata_list, new_tail} = Enum.reduce_while(tail, {0, metadata_list, tail}, fn metadata_value, {count, new_metadata, new_tail} ->
+      if count < metadata_count do
+        {:cont, {count + 1, [metadata_value] ++ new_metadata, List.delete_at(new_tail, 0)}}
+      else
+        {:halt, {new_metadata, new_tail}}
+      end
+    end)
 
+    {count, metadata} = List.first(previous_headers)
+    new_previous_headers = List.delete_at(previous_headers, 0)
 
-  defp reduce(metadata, [ {1, remainder} | other_headers], tally) do
-    new_metadata = Enum.slice(metadata, 0..(remainder - 1))
-    tally = metadata ++ tally
-
-    new_remainder = Enum.slice(metadata, remainder..-1)
-
-    IO.puts "1"
-    IO.inspect new_remainder
-    IO.inspect other_headers
-    IO.inspect tally
-    IO.puts "---"
-    reduce(new_remainder, other_headers, tally)
+    parse_line([count - 1, metadata] ++ new_tail, new_previous_headers, new_metadata_list)
   end
 
+  defp parse_line([children, metadata_count, 0, child_metadata_count | tail], previous_headers, metadata_list) do
+    {new_metadata_list, new_tail} = Enum.reduce_while(tail, {0, metadata_list, tail}, fn metadata_value, {count, new_metadata, new_tail} ->
+      if count < child_metadata_count do
+        {:cont, {count + 1, [metadata_value] ++ new_metadata, List.delete_at(new_tail, 0)}}
+      else
+        {:halt, {new_metadata, new_tail}}
+      end
+    end)
 
-
-  defp reduce([0, count_of_metadata | tail] = metadata, [ {children, remainder} | other_headers], tally) do
-    new_headers = [{ children - 1, remainder}] ++ other_headers
-
-    metadata = Enum.slice(tail, 0..(count_of_metadata - 1))
-    tally = metadata ++ tally
-
-    remainder = Enum.slice(tail, count_of_metadata..-1)
-
-    IO.puts "2"
-    IO.inspect remainder
-    IO.inspect new_headers
-    IO.inspect tally
-    IO.puts "---"
-    reduce(remainder, new_headers, tally)
+    parse_line([children - 1, metadata_count] ++ new_tail, previous_headers, new_metadata_list)
   end
 
-  defp reduce([count_of_children, count_of_metadata | tail] = metadata, headers, tally) do
-    new_headers = [{ count_of_children, count_of_metadata}] ++ headers
+  defp parse_line([children, metadata_count | tail], previous_headers, metadata_list) do
+    new_previous_headers = [{children, metadata_count}] ++ previous_headers
 
-    IO.puts "3"
-    IO.inspect tail
-    IO.inspect new_headers
-    IO.inspect tally
-    IO.puts "---"
-    reduce(tail, new_headers, tally)
+    parse_line(tail, new_previous_headers, metadata_list)
   end
 
-  defp reduce(_, [], tally) do
-    IO.puts "4"
-    tally
+  defp parse_line([], [], metadata_list) do
+    Enum.sum(metadata_list)
   end
-
-  
-  # defp drill_down([0, count_of_metadata | tail] = numbers, tally) do
-  #   metadata = Enum.slice(tail, 0..(count_of_metadata - 1))
-  #   tally = metadata ++ tally
-
-  #   remainder = Enum.slice(tail, count_of_metadata..-1)
-
-  #   IO.inspect metadata, label: "metadata"
-  #   IO.inspect remainder, label: "remainder"
-
-  #   drill_down(remainder, tally)
-  # end
-
-
-  # defp drill_down([count_of_children, count_of_metadata | tail] = numbers, tally) do
-  #   metadata = tail
-  #   |> Enum.reverse()
-  #   |> Enum.take(count_of_metadata)
-  #   |> Enum.reverse()
-
-  #   tally = metadata ++ tally
-
-  #   remainder = Enum.slice(tail, 0..(count_of_metadata + 1) * -1)
-
-  #   IO.inspect metadata, label: "metadata"
-  #   IO.inspect remainder, label: "remainder"
-
-  #   drill_down(remainder, tally)
-  # end
-
-  # defp drill_down([], tally) do
-  #   tally
-  # end
 
 end
