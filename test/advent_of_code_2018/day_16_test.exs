@@ -1,5 +1,6 @@
 defmodule AdventOfCode2018.Day16Test do
   use ExUnit.Case
+  doctest AdventOfCode2018.Day16.Opcodes
 
   import AdventOfCode2018.Day16
 
