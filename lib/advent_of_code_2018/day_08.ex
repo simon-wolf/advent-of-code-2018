@@ -56,13 +56,6 @@ defmodule AdventOfCode2018.Day08 do
     |> String.split()
     |> Enum.map(&String.to_integer/1)
     |> parse_line([], [])
-
-    # |> drill_down([])
-    # |> Enum.sum()
-    # |> reduce([], %{}, 0)
-    # |> Enum.sum()
-
-    # 0
   end
 
   @doc """
@@ -96,7 +89,13 @@ defmodule AdventOfCode2018.Day08 do
 
   What is the value of the root node?
   """
-  def part2(_file_path) do
+  def part2(file_path) do
+    file_path
+    |> File.read!()
+    |> String.split()
+    |> Enum.map(&String.to_integer/1)
+
+    0
   end
 
   defp parse_line([0, metadata_count | tail], [], metadata_list) do
