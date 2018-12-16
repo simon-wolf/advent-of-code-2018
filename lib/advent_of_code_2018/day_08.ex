@@ -99,7 +99,7 @@ defmodule AdventOfCode2018.Day08 do
   end
 
   defp parse_line([0, metadata_count | tail], [], metadata_list) do
-    parse_line([], [], tail ++ metadata_list)
+    Enum.sum(metadata_list ++ tail)
   end
 
   defp parse_line([0, metadata_count | tail], previous_headers, metadata_list) do
@@ -117,26 +117,11 @@ defmodule AdventOfCode2018.Day08 do
     parse_line([count - 1, metadata] ++ new_tail, new_previous_headers, new_metadata_list)
   end
 
-  defp parse_line([children, metadata_count, 0, child_metadata_count | tail], previous_headers, metadata_list) do
-    {new_metadata_list, new_tail} = Enum.reduce_while(tail, {0, metadata_list, tail}, fn metadata_value, {count, new_metadata, new_tail} ->
-      if count < child_metadata_count do
-        {:cont, {count + 1, [metadata_value] ++ new_metadata, List.delete_at(new_tail, 0)}}
-      else
-        {:halt, {new_metadata, new_tail}}
-      end
-    end)
-
-    parse_line([children - 1, metadata_count] ++ new_tail, previous_headers, new_metadata_list)
-  end
-
+  # There is a header and no child immediately after it
   defp parse_line([children, metadata_count | tail], previous_headers, metadata_list) do
     new_previous_headers = [{children, metadata_count}] ++ previous_headers
 
     parse_line(tail, new_previous_headers, metadata_list)
-  end
-
-  defp parse_line([], [], metadata_list) do
-    Enum.sum(metadata_list)
   end
 
 end
