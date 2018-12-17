@@ -1,18 +1,83 @@
 defmodule AdventOfCode2018.Day16.Opcodes do
-  @moduledoc false
+  @moduledoc """
+  Thanks to bjorng for the doctest data which was taken from:
+  https://github.com/bjorng/advent-of-code-2018/blob/master/day16/lib/day16.ex
+  """
 
   use Bitwise
+
+  def set_register([register_0, register_1, register_2, register_3]) do
+    %{}
+    |> Map.put(:reg0, register_0)
+    |> Map.put(:reg1, register_1)
+    |> Map.put(:reg2, register_2)
+    |> Map.put(:reg3, register_3)
+  end
+
+  def get_register(register_map) do
+    [ Map.get(register_map, :reg0), Map.get(register_map, :reg1), Map.get(register_map, :reg2), Map.get(register_map, :reg3) ]
+  end
+
+   def instruct_register(register_values, instruction, parameters) when is_list(register_values) do
+    instruct_register(set_register(register_values), instruction, parameters)
+  end
+
+  def instruct_register(register, instruction, parameters) when is_map(register) do
+    [opcode_id, input_a, input_b, output_c] = parameters
+    |> String.split(" ")
+    |> Enum.map(&String.to_integer(&1))
+
+    parameters_map = %{}
+    |> Map.put(:ID, opcode_id)
+    |> Map.put(:A, input_a)
+    |> Map.put(:B, input_b)
+    |> Map.put(:C, output_c)
+
+    spec = generate_spec(register, parameters_map)
+
+    result = instruction.(spec)
+    Map.put(Map.get(spec, :register), Map.get(spec, :c_atom), result)
+    |> get_register
+  end
+
+
+  defp generate_spec(register, parameters) when is_map(register) and is_map(parameters) do
+    a_index = Map.get(parameters, :A)
+    b_index = Map.get(parameters, :B)
+    c_index = Map.get(parameters, :C)
+
+    a_atom = "reg" <> Integer.to_string(a_index) |> String.to_atom
+    b_atom = "reg" <> Integer.to_string(b_index) |> String.to_atom
+    c_atom = "reg" <> Integer.to_string(c_index) |> String.to_atom
+
+    a_from_register = Map.get(register, a_atom)
+    b_from_register = Map.get(register, b_atom)
+
+    a_value = a_index
+    b_value = b_index
+
+    %{}
+    |> Map.put(:a_reg, a_from_register)
+    |> Map.put(:b_reg, b_from_register)
+    |> Map.put(:a_val, a_value)
+    |> Map.put(:b_val, b_value)
+    |> Map.put(:c_atom, c_atom)
+    |> Map.put(:register, register)
+    |> Map.put(:parameters, parameters)
+  end
+
 
   @doc """
   Stores into register C the result of adding register A and register B.
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.addr(%{:A => 1, :B => 2, :C => 0})
-      %{A: 1, B: 2, C: 3}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.addr/1, "0 1 2 0")
+      [9, 4, 5, 10]
+
   """
-  def addr(register) do
-    Map.put(register, :C, Map.get(register, :A) + Map.get(register, :B))
+  def addr(spec) do
+    Map.get(spec, :a_reg) + Map.get(spec, :b_reg)
   end
 
   @doc """
@@ -20,11 +85,12 @@ defmodule AdventOfCode2018.Day16.Opcodes do
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.addi(%{:A => 1, :B => 0, :C => 0}, 2)
-      %{A: 1, B: 0, C: 3}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.addi/1, "0 1 42 3")
+      [1, 4, 5, 46]
+
   """
-  def addi(register, b_value) when is_integer(b_value) do
-    Map.put(register, :C, Map.get(register, :A) + b_value)
+  def addi(spec) do
+    Map.get(spec, :a_reg) + Map.get(spec, :b_val)
   end
 
   @doc """
@@ -32,11 +98,12 @@ defmodule AdventOfCode2018.Day16.Opcodes do
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.mulr(%{:A => 2, :B => 3, :C => 0})
-      %{A: 2, B: 3, C: 6}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.mulr/1, "0 1 2 0")
+      [20, 4, 5, 10]
+
   """
-  def mulr(register) do
-    Map.put(register, :C, Map.get(register, :A) * Map.get(register, :B))
+  def mulr(spec) do
+    Map.get(spec, :a_reg) * Map.get(spec, :b_reg)
   end
 
   @doc """
@@ -44,11 +111,12 @@ defmodule AdventOfCode2018.Day16.Opcodes do
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.muli(%{:A => 3, :B => 0, :C => 0}, 4)
-      %{A: 3, B: 0, C: 12}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.muli/1, "0 1 42 3")
+      [1, 4, 5, 168]
+
   """
-  def muli(register, b_value) when is_integer(b_value) do
-    Map.put(register, :C, Map.get(register, :A) * b_value)
+  def muli(spec) do
+    Map.get(spec, :a_reg) * Map.get(spec, :b_val)
   end
 
   @doc """
@@ -56,11 +124,12 @@ defmodule AdventOfCode2018.Day16.Opcodes do
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.banr(%{:A => 9, :B => 3, :C => 0})
-      %{A: 9, B: 3, C: 1}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 5, 13, 10], &AdventOfCode2018.Day16.Opcodes.banr/1, "0 1 2 0")
+      [5, 5, 13, 10]
+
   """
-  def banr(register) do
-    Map.put(register, :C, Map.get(register, :A) &&& Map.get(register, :B))
+  def banr(spec) do
+    Map.get(spec, :a_reg) &&& Map.get(spec, :b_reg)
   end
 
   @doc """
@@ -68,11 +137,12 @@ defmodule AdventOfCode2018.Day16.Opcodes do
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.bani(%{:A => 9, :B => 0, :C => 0}, 3)
-      %{A: 9, B: 0, C: 1}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.bani/1, "0 3 8 0")
+      [8, 4, 5, 10]
+
   """
-  def bani(register, b_value) when is_integer(b_value) do
-    Map.put(register, :C, Map.get(register, :A) &&& b_value)
+  def bani(spec) do
+    Map.get(spec, :a_reg) &&& Map.get(spec, :b_val)
   end
 
   @doc """
@@ -80,11 +150,13 @@ defmodule AdventOfCode2018.Day16.Opcodes do
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.borr(%{:A => 9, :B => 3, :C => 0})
-      %{A: 9, B: 3, C: 11}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 5, 9, 10], &AdventOfCode2018.Day16.Opcodes.borr/1, "0 1 2 0")
+      [13, 5, 9, 10]
+
   """
-  def borr(register) do
-    Map.put(register, :C, bor(Map.get(register, :A), Map.get(register, :B)))
+  def borr(spec) do
+    # bor(Map.get(spec, :a_reg), Map.get(spec, :b_reg))
+    Map.get(spec, :a_reg) ||| Map.get(spec, :b_reg)
   end
 
   @doc """
@@ -92,11 +164,13 @@ defmodule AdventOfCode2018.Day16.Opcodes do
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.bori(%{:A => 9, :B => 0, :C => 0}, 3)
-      %{A: 9, B: 0, C: 11}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.bori/1, "0 3 32 0")
+      [42, 4, 5, 10]
+
   """
-  def bori(register, b_value) when is_integer(b_value) do
-    Map.put(register, :C, bor(Map.get(register, :A), b_value))
+  def bori(spec) do
+    # bor(Map.get(spec, :a_reg), Map.get(spec, :b_val))
+    Map.get(spec, :a_reg) ||| Map.get(spec, :b_val)
   end
 
   @doc """
@@ -104,11 +178,12 @@ defmodule AdventOfCode2018.Day16.Opcodes do
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.setr(%{:A => 9, :B => 3, :C => 0})
-      %{A: 9, B: 3, C: 9}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.setr/1, "0 3 999 1")
+      [1, 10, 5, 10]
+
   """
-  def setr(register) do
-    Map.put(register, :C, Map.get(register, :A))
+  def setr(spec) do
+    Map.get(spec, :a_reg)
   end
 
   @doc """
@@ -116,39 +191,31 @@ defmodule AdventOfCode2018.Day16.Opcodes do
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.seti(%{:A => 9, :B => 3, :C => 0}, 5)
-      %{A: 9, B: 3, C: 5}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.seti/1, "0 777 999 0")
+      [777, 4, 5, 10]
+
   """
-  def seti(register, a_value) when is_integer(a_value) do
-    Map.put(register, :C, a_value)
+  def seti(spec) do
+    Map.get(spec, :a_val)
   end
-
-  
-
-
-
 
   @doc """
   Sets register C to 1 if value A is greater than register B. Otherwise, register C is set to 0.
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.gtir(%{:A => 1, :B => 2, :C => 0}, 3)
-      %{A: 1, B: 2, C: 1}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.gtir/1, "0 7 2 0")
+      [1, 4, 5, 10]
 
-      iex> AdventOfCode2018.Day16.Opcodes.gtir(%{:A => 4, :B => 2, :C => 0}, 1)
-      %{A: 4, B: 2, C: 0}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.gtir/1, "0 0 2 0")
+      [0, 4, 5, 10]
 
-      iex> AdventOfCode2018.Day16.Opcodes.gtir(%{:A => 4, :B => 2, :C => 0}, 2)
-      %{A: 4, B: 2, C: 0}
-      
   """
-  def gtir(register, a_value) when is_integer(a_value) do
-    c_value = cond do
-      a_value > Map.get(register, :B) -> 1
+  def gtir(spec) do
+    cond do
+      Map.get(spec, :a_val) > Map.get(spec, :b_reg) -> 1
       true -> 0
     end
-    Map.put(register, :C, c_value)
   end
 
   @doc """
@@ -156,22 +223,18 @@ defmodule AdventOfCode2018.Day16.Opcodes do
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.gtri(%{:A => 9, :B => 10, :C => 0}, 8)
-      %{A: 9, B: 10, C: 1}
-
-      iex> AdventOfCode2018.Day16.Opcodes.gtri(%{:A => 9, :B => 8, :C => 0}, 10)
-      %{A: 9, B: 8, C: 0}
-
-      iex> AdventOfCode2018.Day16.Opcodes.gtri(%{:A => 9, :B => 9, :C => 0}, 9)
-      %{A: 9, B: 9, C: 0}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.gtri/1, "0 3 9 0")
+      [1, 4, 5, 10]
       
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.gtri/1, "0 2 9 0")
+      [0, 4, 5, 10]
+
   """
-  def gtri(register, b_value) when is_integer(b_value) do
-    c_value = cond do
-      Map.get(register, :A) > b_value -> 1
+  def gtri(spec) do
+    cond do
+      Map.get(spec, :a_reg) > Map.get(spec, :b_val) -> 1
       true -> 0
     end
-    Map.put(register, :C, c_value)
   end
 
   @doc """
@@ -179,22 +242,18 @@ defmodule AdventOfCode2018.Day16.Opcodes do
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.gtrr(%{:A => 9, :B => 8, :C => 0})
-      %{A: 9, B: 8, C: 1}
-
-      iex> AdventOfCode2018.Day16.Opcodes.gtrr(%{:A => 9, :B => 10, :C => 0})
-      %{A: 9, B: 10, C: 0}
-
-      iex> AdventOfCode2018.Day16.Opcodes.gtrr(%{:A => 9, :B => 9, :C => 0})
-      %{A: 9, B: 9, C: 0}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.gtrr/1, "0 3 2 0")
+      [1, 4, 5, 10]
+      
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.gtrr/1, "0 1 2 0")
+      [0, 4, 5, 10]
 
   """
-  def gtrr(register) do
-    c_value = cond do
-      Map.get(register, :A) > Map.get(register, :B) -> 1
+  def gtrr(spec) do
+    cond do
+      Map.get(spec, :a_reg) > Map.get(spec, :b_reg) -> 1
       true -> 0
     end
-    Map.put(register, :C, c_value)
   end
 
   @doc """
@@ -202,22 +261,18 @@ defmodule AdventOfCode2018.Day16.Opcodes do
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.eqir(%{:A => 9, :B => 8, :C => 0}, 8)
-      %{A: 9, B: 8, C: 1}
-
-      iex> AdventOfCode2018.Day16.Opcodes.eqir(%{:A => 9, :B => 8, :C => 0}, 9)
-      %{A: 9, B: 8, C: 0}
-
-      iex> AdventOfCode2018.Day16.Opcodes.eqir(%{:A => 9, :B => 8, :C => 0}, 7)
-      %{A: 9, B: 8, C: 0}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.eqir/1, "0 4 1 0")
+      [1, 4, 5, 10]
+      
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.eqir/1, "0 42 1 0")
+      [0, 4, 5, 10]
 
   """
-  def eqir(register, a_value) when is_integer(a_value) do
-    c_value = cond do
-      a_value == Map.get(register, :B) -> 1
+  def eqir(spec) do
+    cond do
+      Map.get(spec, :a_val) == Map.get(spec, :b_reg) -> 1
       true -> 0
     end
-    Map.put(register, :C, c_value)
   end
 
   @doc """
@@ -225,45 +280,37 @@ defmodule AdventOfCode2018.Day16.Opcodes do
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.eqri(%{:A => 9, :B => 8, :C => 0}, 9)
-      %{A: 9, B: 8, C: 1}
-
-      iex> AdventOfCode2018.Day16.Opcodes.eqri(%{:A => 9, :B => 8, :C => 0}, 10)
-      %{A: 9, B: 8, C: 0}
-
-      iex> AdventOfCode2018.Day16.Opcodes.eqri(%{:A => 9, :B => 8, :C => 0}, 8)
-      %{A: 9, B: 8, C: 0}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.eqri/1, "0 3 10 0")
+      [1, 4, 5, 10]
+      
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.eqri/1, "0 3 19 0")
+      [0, 4, 5, 10]
 
   """
-  def eqri(register, b_value) when is_integer(b_value) do
-    c_value = cond do
-      Map.get(register, :A) == b_value -> 1
+  def eqri(spec) do
+    cond do
+      Map.get(spec, :a_reg) == Map.get(spec, :b_val) -> 1
       true -> 0
     end
-    Map.put(register, :C, c_value)
   end
 
   @doc """
-  Sets register C to 1 if register A is equal to value B. Otherwise, register C is set to 0.
+  Sets register C to 1 if register A is equal to register B. Otherwise, register C is set to 0.
 
   ## Examples
 
-      iex> AdventOfCode2018.Day16.Opcodes.eqrr(%{:A => 9, :B => 9, :C => 0})
-      %{A: 9, B: 9, C: 1}
-
-      iex> AdventOfCode2018.Day16.Opcodes.eqrr(%{:A => 9, :B => 8, :C => 0})
-      %{A: 9, B: 8, C: 0}
-
-      iex> AdventOfCode2018.Day16.Opcodes.eqrr(%{:A => 9, :B => 10, :C => 0})
-      %{A: 9, B: 10, C: 0}
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 5, 10], &AdventOfCode2018.Day16.Opcodes.eqrr/1, "0 3 2 0")
+      [0, 4, 5, 10]
+      
+      iex> AdventOfCode2018.Day16.Opcodes.instruct_register([1, 4, 10, 10], &AdventOfCode2018.Day16.Opcodes.eqrr/1, "0 3 2 0")
+      [1, 4, 10, 10]
 
   """
-  def eqrr(register) do
-    c_value = cond do
-      Map.get(register, :A) == Map.get(register, :B) -> 1
+  def eqrr(spec) do
+    cond do
+      Map.get(spec, :a_reg) == Map.get(spec, :b_reg) -> 1
       true -> 0
     end
-    Map.put(register, :C, c_value)
   end
 
 end
