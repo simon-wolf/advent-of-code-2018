@@ -143,6 +143,7 @@ defmodule AdventOfCode2018.Day16 do
 
       [opcodes] ++ acc
     end)
+    |> IO.inspect
 
     filtered_results = Enum.filter(samples_analysis, fn sample ->
       length(sample) > 2
@@ -156,11 +157,93 @@ defmodule AdventOfCode2018.Day16 do
 
   What value is contained in register 0 after executing the test program?  
   """
-  def part2(args) do
-    
+  def part2(file_path) do
+    opcodes = build_opcodes_map()
+
+    opcode_mappings = get_samples("./data/day_16_part_1.txt")
+    |> Enum.reduce(%{}, fn sample, acc ->
+
+      opcodes = Map.keys(opcodes)
+      |> Enum.reduce([], fn function_name, valid_opcodes ->
+        output = AdventOfCode2018.Day16.Opcodes.instruct_register(Map.get(sample, :input), Map.get(opcodes, function_name), Map.get(sample, :instruction))
+        if output == Map.get(sample, :expected_output) do
+          [function_name] ++ valid_opcodes
+        else
+          valid_opcodes
+        end
+      end)
+
+      instruction_id = Map.get(sample, :instruction)
+      |> String.split(" ")
+      |> List.first()
+      |> String.to_integer
+
+      case Map.has_key?(acc, instruction_id) do
+        true ->
+          current = Map.get(acc, instruction_id)
+          new = MapSet.new(opcodes)
+          combined = MapSet.union(current, new)
+          Map.put(acc, instruction_id, combined)
+        false ->
+          Map.put(acc, instruction_id, MapSet.new(opcodes))
+      end
+    end)
+
+    opcode_identifiers = find_identifiers_for_opcodes(opcode_mappings, %{})
+
+    programme_inputs = get_inputs(file_path)
+
+    [reg0, _, _, _] = Enum.reduce(programme_inputs, [0, 0, 0, 0], fn input, register ->
+      func = function_from_input(input, opcodes, opcode_identifiers)
+      AdventOfCode2018.Day16.Opcodes.instruct_register(register, func, input)
+    end)
+
+    reg0
   end
 
-  def build_opcodes_map() do
+  defp function_from_input(input, opcodes, opcode_identifiers) do
+    id = input
+    |> String.split(" ")
+    |> List.first()
+    |> String.to_integer
+
+    function_name = Map.get(opcode_identifiers, id)
+    Map.get(opcodes, function_name)
+  end
+
+  defp find_identifiers_for_opcodes(possibilities, opcode_info) when possibilities == %{} do
+    opcode_info
+  end
+
+  defp find_identifiers_for_opcodes(possibilities, opcode_info) do
+    {new_possibilities, new_info} = Enum.reduce(Map.keys(possibilities), {Map.new(possibilities), Map.new(opcode_info)}, fn key, {new_possibilities, new_info} ->
+      key_values = Map.get(possibilities, key)
+
+      case MapSet.size(key_values) do
+        1 ->
+          found_opcode = MapSet.to_list(key_values) |> List.first()
+          new_info = Map.put(new_info, key, found_opcode)
+          new_possibilities = Map.delete(new_possibilities, key)
+
+          new_possibilities = Enum.reduce(Map.keys(new_possibilities), %{}, fn key, cleaned_possibilities ->
+            new_values = Map.get(new_possibilities, key)
+            |> MapSet.to_list()
+            |> List.delete(found_opcode)
+
+            Map.put(cleaned_possibilities, key, MapSet.new(new_values))
+          end)
+
+          {new_possibilities, new_info}
+        _ ->
+          {new_possibilities, new_info}
+      end
+    end)
+
+    find_identifiers_for_opcodes(new_possibilities, new_info)
+  end
+
+
+  defp build_opcodes_map() do
     %{}
     |> Map.put("addr", &AdventOfCode2018.Day16.Opcodes.addr/1)
     |> Map.put("addi", &AdventOfCode2018.Day16.Opcodes.addi/1)
@@ -180,22 +263,24 @@ defmodule AdventOfCode2018.Day16 do
     |> Map.put("eqrr", &AdventOfCode2018.Day16.Opcodes.eqrr/1)
   end
 
-  def get_samples(file_path) do
+  defp get_samples(file_path) do
     file_path
     |> File.stream!()
     |> Stream.map(&String.trim/1)
     |> Enum.to_list()
     |> parse_file_lines([])
-    # |> IO.inspect
-
-    # [
-    #   %{input: [3, 2, 1, 1], instruction: "9 2 1 2", expected_output: [3, 2, 2, 1]},
-    #   %{input: [2, 0, 2, 2], instruction: "3 0 2 1", expected_output: [2, 1, 2, 2]} 
-    # ]
-    # |> IO.inspect
   end
 
   defp parse_file_lines([input, instruction, expected_output, "" | tail], parsed_lines) do
+    new_parsed_lines = [parse_file_line_contents(input, instruction, expected_output)] ++ parsed_lines
+    parse_file_lines(tail, new_parsed_lines)
+  end
+
+  defp parse_file_lines([input, instruction, expected_output | tail], parsed_lines) do
+    [parse_file_line_contents(input, instruction, expected_output)] ++ parsed_lines
+  end
+
+  defp parse_file_line_contents(input, instruction, expected_output) do
     cleaned_input = String.slice(input, 7..-1)
     |> String.trim()
     |> string_to_list()
@@ -204,18 +289,20 @@ defmodule AdventOfCode2018.Day16 do
     |> String.trim()
     |> string_to_list()
 
-    new_parsed_lines = [%{input: cleaned_input, instruction: instruction, expected_output: cleaned_expected_output}] ++ parsed_lines
-    parse_file_lines(tail, new_parsed_lines)
-  end
-
-  defp parse_file_lines(["", "" | tail], parsed_lines) do
-    parsed_lines
+    %{input: cleaned_input, instruction: instruction, expected_output: cleaned_expected_output}
   end
 
   defp string_to_list(list_string) do
     numbers_string = String.slice(list_string, 1..-2)
     strings_list = String.split(numbers_string, ", ")
     Enum.map(strings_list, &String.to_integer/1)
+  end
+
+  defp get_inputs(file_path) do
+    file_path
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+    |> Enum.to_list()
   end
 
 end
