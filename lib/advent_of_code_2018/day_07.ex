@@ -1,3 +1,11 @@
+defmodule StepInfo do
+  defstruct duration: 0, start_at: -1, end_at: -1, dependent_on: []
+end
+
+defmodule Worker do
+  defstruct processing: "", available_at: 0
+end
+
 defmodule AdventOfCode2018.Day07 do
   @moduledoc false
 
@@ -65,21 +73,16 @@ defmodule AdventOfCode2018.Day07 do
   In what order should the steps in your instructions be completed?
   """
   def part1(file_path) do
-    dependencies_map = file_path
+    steps = file_path
     |> File.stream!()
     |> Stream.map(&String.trim/1)
     |> Stream.map(&parse_instruction/1)
     |> Enum.to_list()
+    |> generate_step_info(false, 0)
 
-    |> Enum.reduce(%{}, fn {do_this, before_this}, acc -> 
-      acc = Map.put_new(acc, do_this, [])
-      acc = Map.put_new(acc, before_this, [])
+    workers = generate_workers(1)
 
-      dependencies = Map.get(acc, before_this)
-      Map.put(acc, before_this, [do_this] ++ dependencies)
-    end)
-
-    parse_map([], dependencies_map, Map.keys(dependencies_map) |> length())
+    {steps, current_time} = process_steps(steps, workers, 0, [])
   end
 
   @doc """
@@ -130,49 +133,142 @@ defmodule AdventOfCode2018.Day07 do
   will it take to complete all of the steps?
   """
   def part2(file_path) do
-    _ = file_path
+    steps = file_path
     |> File.stream!()
     |> Stream.map(&String.trim/1)
+    |> Stream.map(&parse_instruction/1)
+    |> Enum.to_list()
+    |> generate_step_info(true, 60)
 
-    ""
+    workers = generate_workers(5)
+
+    {steps, current_time} = process_steps(steps, workers, 0, [])
   end
 
+
+  # Split the instruction string into a tuple of dependencies
   defp parse_instruction(instruction) do
     { String.slice(instruction, 5..5), String.slice(instruction, 36..36) }
   end
 
+  # Generate a map of StepInfo structs to define steps, dependencies, duraions, etc.
+  defp generate_step_info(dependencies_tuples, add_duration, extra_time) do
+    dependencies_tuples
+    |> Enum.reduce(%{}, fn {do_this, before_this}, acc -> 
+      acc = Map.put_new(acc, do_this, %StepInfo{ duration: step_value(do_this, add_duration, extra_time) })
+      acc = Map.put_new(acc, before_this, %StepInfo{ duration: step_value(before_this, add_duration, extra_time) })
 
-  defp parse_map(steps, dependencies_map, map_keys_count) when map_keys_count > 0 do
-    next_step = next_available_step(dependencies_map)
+      step_info = Map.get(acc, before_this)
+      dependencies = step_info.dependent_on
+      new_dependencies = [do_this] ++ dependencies
+      new_step_info = %{ step_info | dependent_on: new_dependencies }
 
-    new_dependendencies_map = Enum.reduce(Map.keys(dependencies_map), %{}, fn key, acc -> 
-      if key == next_step do
-        acc
+      Map.put(acc, before_this, new_step_info)
+    end)
+  end
+
+  defp generate_workers(number_of_workers) do
+    workers = Enum.reduce(1..number_of_workers, %{}, fn worker_id, workers ->
+      Map.put(workers, worker_id, %Worker{})
+    end)
+  end
+
+  # The actual data processing
+  defp process_steps(steps, workers, current_time, completed_steps) when steps == %{} do
+    {updated_workers, newly_completed_steps} = update_workers(workers, current_time)
+    all_completed_steps = newly_completed_steps ++ completed_steps
+
+    active_count = Enum.reduce(Map.keys(workers), 0, fn worker_id, active_worker_count ->
+      worker = Map.get(workers, worker_id)
+      if worker.available_at > current_time do
+        active_worker_count + 1
       else
-        new_deps = Map.get(dependencies_map, key)
-        |> List.delete(next_step)
-        Map.put(acc, key, new_deps)
+        active_worker_count
       end
     end)
 
-    new_steps = [ next_step ] ++ steps
-
-    new_count = Map.keys(new_dependendencies_map) |> length()
-
-    parse_map(new_steps, new_dependendencies_map, new_count)
+    if active_count == 0 do
+      steps = all_completed_steps
+      |> Enum.reverse()
+      |> List.to_string()
+      {steps, current_time}
+    else
+      process_steps(steps, updated_workers, current_time + 1, all_completed_steps)
+    end
   end
 
-  defp parse_map(steps, _dependencies_map, _map_keys_count) do
-    Enum.reverse(steps) |> List.to_string()
+  defp process_steps(steps, workers, current_time, completed_steps) do
+    # Remove and log any completed steps
+    {updated_workers, newly_completed_steps} = update_workers(workers, current_time)
+
+    all_completed_steps = newly_completed_steps ++ completed_steps
+    updated_steps = update_steps(steps, newly_completed_steps)
+
+    # Assign any available tasks to any available workers
+    {updated_steps, updated_workers, _current_time} = assign_tasks(updated_steps, updated_workers, current_time)
+
+    process_steps(updated_steps, updated_workers, current_time + 1, all_completed_steps)
   end
 
+  defp update_workers(workers, current_time) do
+    {updated_workers, steps_finished_this_tick} = Enum.reduce(Map.keys(workers), {%{}, []}, fn worker_id, {new_workers, steps_finished} ->
+      worker = Map.get(workers, worker_id)
+      if worker.available_at == current_time && worker.processing != "" do
+        { Map.put(new_workers, worker_id, %Worker{available_at: -1, processing: ""}), [worker.processing] ++ steps_finished}
+      else
+        { Map.put(new_workers, worker_id, worker), steps_finished}
+      end
+    end)
 
+    {updated_workers, steps_finished_this_tick}
+  end
 
-  defp next_available_step(dependencies_map) do
-    Map.keys(dependencies_map)
+  defp update_steps(steps, newly_completed_steps) do
+    completed_steps = MapSet.new(newly_completed_steps)
+
+    Map.keys(steps)
+    |> Enum.reduce(%{}, fn key, acc -> 
+      step = Map.get(steps, key)
+
+      step_dependencies = MapSet.new(step.dependent_on)
+      updated_dependencies = MapSet.difference(step_dependencies, completed_steps)
+
+      new_step_info = %{ step | dependent_on: MapSet.to_list(updated_dependencies) }
+      Map.put(acc, key, new_step_info)
+    end)
+  end
+
+  defp assign_tasks(steps, workers, current_time) do
+    next_task = next_available_step(steps)
+
+    available_worker = Map.keys(workers)
+    |> Enum.reduce_while(-1, fn worker_id, acc ->
+      worker = Map.get(workers, worker_id)
+      if Map.get(worker, :processing) == "", do: {:halt, worker_id}, else: {:cont, acc}
+    end)
+
+    if next_task == nil || available_worker == -1 do
+      {steps, workers, current_time}
+    else
+      task = Map.get(steps, next_task)
+
+      worker = Map.get(workers, available_worker)
+      |> Map.put(:processing, next_task)
+      |> Map.put(:available_at, current_time + task.duration)
+
+      new_workers = Map.put(workers, available_worker, worker)
+
+      new_steps = Map.delete(steps, next_task)
+      
+      assign_tasks(new_steps, new_workers, current_time)
+    end
+  end
+
+  defp next_available_step(steps) do
+    Map.keys(steps)
     |> Enum.reduce([], fn key, acc -> 
-      dependencies = Map.get(dependencies_map, key)
-      if length(dependencies) == 0 do
+      step = Map.get(steps, key)
+      if length(step.dependent_on) == 0 do
         [key] ++ acc
       else
         acc
@@ -181,4 +277,30 @@ defmodule AdventOfCode2018.Day07 do
     |> Enum.sort()
     |> List.first()
   end
+
+  defp next_available_worker(workers) do
+    available_worker_ids = Enum.reduce(workers, [], fn worker, acc ->
+      current_step = worker.processing
+      if (current_step = "") do
+        [worker.id] ++ acc
+      else
+        acc
+      end
+    end)
+    |> IO.inspect label: "Available Worker IDs"
+  end
+
+  defp step_value(letter, false, _) do
+    1
+  end
+
+  defp step_value(letter, true, extra_time) do
+    char_list = letter
+    |> String.upcase()
+    |> String.to_charlist()
+
+    [head | _tail] = char_list
+    head - 64 + extra_time
+  end
+
 end
