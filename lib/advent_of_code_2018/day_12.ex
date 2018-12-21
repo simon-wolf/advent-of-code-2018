@@ -1,7 +1,236 @@
 defmodule AdventOfCode2018.Day12 do
-  def part1(args) do
+  @moduledoc false
+
+  @doc """
+  --- Day 12: Subterranean Sustainability ---
+
+  The year 518 is significantly more underground than your history books 
+  implied. Either that, or you've arrived in a vast cavern network under the 
+  North Pole.
+
+  After exploring a little, you discover a long tunnel that contains a row of 
+  small pots as far as you can see to your left and right. A few of them 
+  contain plants - someone is trying to grow things in these 
+  geothermally-heated caves.
+
+  The pots are numbered, with 0 in front of you. To the left, the pots are 
+  numbered -1, -2, -3, and so on; to the right, 1, 2, 3.... Your puzzle input 
+  contains a list of pots from 0 to the right and whether they do (#) or do 
+  not (.) currently contain a plant, the initial state. (No other pots 
+  currently contain plants.) For example, an initial state of #..##.... 
+  indicates that pots 0, 3, and 4 currently contain plants.
+
+  Your puzzle input also contains some notes you find on a nearby table: 
+  someone has been trying to figure out how these plants spread to nearby pots. 
+  Based on the notes, for each generation of plants, a given pot has or does 
+  not have a plant based on whether that pot (and the two pots on either side 
+  of it) had a plant in the last generation. These are written as LLCRR => N, 
+  where L are pots to the left, C is the current pot being considered, R are 
+  the pots to the right, and N is whether the current pot will have a plant in 
+  the next generation. For example:
+
+  - A note like ..#.. => . means that a pot that contains a plant but with no 
+    plants within two pots of it will not have a plant in it during the next 
+    generation.
+  - A note like ##.## => . means that an empty pot with two plants on each side 
+    of it will remain empty in the next generation.
+  - A note like .##.# => # means that a pot has a plant in a given generation 
+    if, in the previous generation, there were plants in that pot, the one 
+    immediately to the left, and the one two pots to the right, but not in the 
+    ones immediately to the right and two to the left.
+
+  It's not clear what these plants are for, but you're sure it's important, so 
+  you'd like to make sure the current configuration of plants is sustainable by 
+  determining what will happen after 20 generations.
+
+  For example, given the following input:
+
+  initial state: #..#.#..##......###...###
+
+  ...## => #
+  ..#.. => #
+  .#... => #
+  .#.#. => #
+  .#.## => #
+  .##.. => #
+  .#### => #
+  #.#.# => #
+  #.### => #
+  ##.#. => #
+  ##.## => #
+  ###.. => #
+  ###.# => #
+  ####. => #
+
+  For brevity, in this example, only the combinations which do produce a plant 
+  are listed. (Your input includes all possible combinations.) Then, the next 
+  20 generations will look like this:
+
+                  1         2         3     
+        0         0         0         0     
+  0: ...#..#.#..##......###...###...........
+  1: ...#...#....#.....#..#..#..#...........
+  2: ...##..##...##....#..#..#..##..........
+  3: ..#.#...#..#.#....#..#..#...#..........
+  4: ...#.#..#...#.#...#..#..##..##.........
+  5: ....#...##...#.#..#..#...#...#.........
+  6: ....##.#.#....#...#..##..##..##........
+  7: ...#..###.#...##..#...#...#...#........
+  8: ...#....##.#.#.#..##..##..##..##.......
+  9: ...##..#..#####....#...#...#...#.......
+  10: ..#.#..#...#.##....##..##..##..##......
+  11: ...#...##...#.#...#.#...#...#...#......
+  12: ...##.#.#....#.#...#.#..##..##..##.....
+  13: ..#..###.#....#.#...#....#...#...#.....
+  14: ..#....##.#....#.#..##...##..##..##....
+  15: ..##..#..#.#....#....#..#.#...#...#....
+  16: .#.#..#...#.#...##...#...#.#..##..##...
+  17: ..#...##...#.#.#.#...##...#....#...#...
+  18: ..##.#.#....#####.#.#.#...##...##..##..
+  19: .#..###.#..#.#.#######.#.#.#..#.#...#..
+  20: .#....##....#####...#######....#.#..##.
+
+  The generation is shown along the left, where 0 is the initial state. The pot 
+  numbers are shown along the top, where 0 labels the center pot, negative-
+  numbered pots extend to the left, and positive pots extend toward the right. 
+  Remember, the initial state begins at pot 0, which is not the leftmost pot 
+  used in this example.
+
+  After one generation, only seven plants remain. The one in pot 0 matched the 
+  rule looking for ..#.., the one in pot 4 matched the rule looking for .#.#., 
+  pot 9 matched .##.., and so on.
+
+  In this example, after 20 generations, the pots shown as # contain plants, 
+  the furthest left of which is pot -2, and the furthest right of which is pot 
+  34. Adding up all the numbers of plant-containing pots after the 20th 
+  generation produces 325.
+
+  After 20 generations, what is the sum of the numbers of all pots which 
+  contain a plant?
+  """
+  def part1(file_path_prefix) do
+    state = file_path_prefix <> "_initial_state.txt"
+    |> File.read!()
+
+    rules = file_path_prefix <> "_rules.txt"
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+    |> Stream.map(&parse_rule/1)
+    |> Enum.to_list()
+    
+    parse_state(state, rules)
+
+    0
   end
 
   def part2(args) do
   end
+
+  # Split the rule definitions into usable data
+  defp parse_rule(rule_string) do
+    pattern = String.slice(rule_string, 0, 5)
+    result = String.slice(rule_string, -1, 1)
+    {pattern, result}
+  end
+
+  # Parse a state according to the rules
+  defp parse_state(state, rules) do
+    Enum.reduce(0..5, {state, 0}, fn x, state_info ->
+
+      {state, offset} = state_info
+      |> pad_state_string_prefix()
+      |> pad_state_string_suffix()
+
+
+
+      new_state = Enum.reduce(0..String.length(state) - 5, "", fn x, new_state ->
+        substring = String.slice(state, x, 5)
+        |> IO.inspect
+
+        item_state = Enum.reduce_while(rules, ".", fn {rule, result}, acc -> 
+          if rule == substring, do: {:halt, result}, else: {:cont, "."}
+        end)
+  
+        new_state <> item_state
+      end)
+      |> IO.inspect
+
+      # {String.slice(state, 0, 2) <> new_state, offset}
+      {new_state, offset}
+    end)
+    |> IO.inspect
+  end
+
+
+  defp pad_state_string_prefix({"....." <> remainder = state_string, offset}) do
+    IO.puts "Starts with ..... and offset is " <> Integer.to_string(offset)
+    {state_string, offset}
+    |> IO.inspect
+  end
+
+  defp pad_state_string_prefix({"...." <> remainder = state_string, offset}) do
+    IO.puts "Starts with .... and offset is " <> Integer.to_string(offset)
+    {"." <> state_string, offset - 1}
+    |> IO.inspect
+  end
+
+
+  defp pad_state_string_prefix({"..." <> remainder = state_string, offset}) do
+    IO.puts "Starts with ... and offset is " <> Integer.to_string(offset)
+    {".." <> state_string, offset - 2}
+    |> IO.inspect
+  end
+
+  defp pad_state_string_prefix({".." <> remainder = state_string, offset}) do
+    IO.puts "Starts with .. and offset is " <> Integer.to_string(offset)
+    {"..." <> state_string, offset - 3}
+    |> IO.inspect
+  end
+
+  defp pad_state_string_prefix({"." <> remainder = state_string, offset}) do
+    IO.puts "Starts with . and offset is " <> Integer.to_string(offset)
+    {"...." <> state_string, offset - 4}
+    |> IO.inspect
+  end
+
+  defp pad_state_string_prefix({state_string, offset}) do
+    IO.puts "Starts with # (" <> state_string <> ") and offset is " <> Integer.to_string(offset)
+    {"....." <> state_string, offset - 5}
+    |> IO.inspect
+  end
+
+
+
+  defp pad_state_string_suffix({state_string, offset}) do
+    padded_string = String.reverse(state_string)
+    |> pad_reversed_state_string
+    |> String.reverse()
+    
+    {padded_string, offset}
+  end
+
+  defp pad_reversed_state_string("....." <> remainder = state_string) do
+    state_string
+  end
+
+  defp pad_reversed_state_string("...." <> remainder = state_string) do
+    "...." <> state_string
+  end
+
+  defp pad_reversed_state_string("..." <> remainder = state_string) do
+    "..." <> state_string
+  end
+
+  defp pad_reversed_state_string(".." <> remainder = state_string) do
+    ".." <> state_string
+  end
+
+  defp pad_reversed_state_string("." <> remainder = state_string) do
+    "." <> state_string
+  end
+
+  defp pad_reversed_state_string(state_string) do
+    "....." <> state_string
+  end
+
 end
